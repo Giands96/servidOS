@@ -1,4 +1,10 @@
 package com.servidos.v1.payment.domain;
 
-public class MetodoPago {
+public enum MetodoPago {
+    TARJETA_CREDITO,
+    TARJETA_DEBITO,
+    YAPE,
+    PLIN,
+    OTROS,
+    EFECTIVO
 }

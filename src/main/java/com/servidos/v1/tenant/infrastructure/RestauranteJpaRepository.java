@@ -1,4 +1,4 @@
 package com.servidos.v1.tenant.infrastructure;
 
-public interface PlanRepository {
+public interface RestauranteJpaRepository {
 }

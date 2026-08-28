@@ -1,4 +1,8 @@
 package com.servidos.v1.ordering.domain;
 
-public class EstadoPedido {
+public enum EstadoPedido {
+    PENDIENTE,
+    PREPARACION,
+    ENTREGA,
+    CANCELADO
 }
