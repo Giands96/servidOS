@@ -19,15 +19,4 @@ public class Usuario {
     EstadoUsuario estado;
     LocalDateTime created_at;
     LocalDateTime updated_at;
-
-    protected void onCreate() {
-        this.created_at = LocalDateTime.now();
-        this.updated_at = LocalDateTime.now(); // Al crear, ambas fechas son iguales
-    }
-    protected void onUpdate() {
-        this.updated_at = LocalDateTime.now(); // Al editar, solo cambia esta fecha
-    }
-
-
-
 }

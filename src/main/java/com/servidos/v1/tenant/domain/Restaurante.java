@@ -18,20 +18,4 @@ public class Restaurante {
     private EstadoRestaurante estado;
     private LocalDateTime created_at;
     private LocalDateTime updated_at;
-
-    public void onCreate() {
-        this.created_at = LocalDateTime.now();
-        this.updated_at = LocalDateTime.now(); // Al crear, ambas fechas son iguales
-    }
-
-    public void onUpdate() {
-        this.updated_at = LocalDateTime.now(); // Al editar, solo cambia esta fecha
-    }
-
-
-
-    enum EstadoRestaurante {
-        ACTIVO,
-        INACTIVO
-    }
 }

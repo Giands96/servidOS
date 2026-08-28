@@ -18,21 +18,11 @@ public class Pedido {
     private Long mesa_id;
     //* ID Usuario (Recepcion) que realiza el pedido */
     private Long usuario_id;
-    private TipoPedido pedido;
+    private TipoPedido tipoPedido;
     private String observacion;
     private String repartidor_nombre;
     private EstadoPedido estado;
     private BigDecimal total;
     private LocalDateTime created_at;
     private LocalDateTime updated_at;
-
-    public void onCreate() {
-        this.created_at = LocalDateTime.now();
-        this.updated_at = LocalDateTime.now(); // Al crear, ambas fechas son iguales
-    }
-
-    public void onUpdate() {
-        this.updated_at = LocalDateTime.now(); // Al editar, solo cambia esta fecha
-    }
-
 }
