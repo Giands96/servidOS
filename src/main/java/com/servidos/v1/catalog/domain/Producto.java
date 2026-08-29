@@ -36,8 +36,6 @@ public class Producto {
                                  EstadoProducto estado,
                                  Integer tiempo_preparacion) {
 
-
-
         /*
         *   Validación multitenancy = El restaurante_id es obligatorio.
         * */
@@ -87,4 +85,48 @@ public class Producto {
                 .build();
     }
 
+    public static Producto actualizar(Long producto_id,
+                                 Long restaurante_id,
+                                 Long categoria_id,
+                                 String nombre,
+                                 String descripcion,
+                                 String imagen_url,
+                                 BigDecimal precio,
+                                 EstadoProducto estado,
+                                 Integer tiempo_preparacion) {
+
+        if(producto_id == null) {
+            throw new BusinessException("El producto_id es obligatorio");
+        }
+
+        if(restaurante_id == null) {
+            throw new BusinessException("El restaurante_id es obligatorio");
+        }
+
+        if(nombre == null || nombre.trim().isEmpty()) {
+            throw new BusinessException("El nombre del producto es obligatorio");
+        } else if(nombre.trim().length() > 150) {
+            throw new BusinessException("El nombre del producto no puede tener más de 150 caracteres");
+        }
+
+        if(precio == null || precio.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("El precio debe ser mayor a 0");
+        }
+
+        if(tiempo_preparacion != null && tiempo_preparacion <= 0) {
+            throw new BusinessException("El tiempo de preparación debe ser un número positivo");
+        }
+
+        return Producto.builder()
+                .producto_id(producto_id)
+                .restaurante_id(restaurante_id)
+                .categoria_id(categoria_id)
+                .nombre(nombre.trim())
+                .descripcion(descripcion)
+                .imagen_url(imagen_url)
+                .precio(precio)
+                .estado(estado != null ? estado : EstadoProducto.DISPONIBLE)
+                .tiempo_preparacion(tiempo_preparacion)
+                .build();
+    }
 }

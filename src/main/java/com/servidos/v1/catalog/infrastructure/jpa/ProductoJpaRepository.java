@@ -9,6 +9,8 @@ import java.util.Optional;
 @Repository
 public interface ProductoJpaRepository extends JpaRepository<ProductoJpaEntity, Long> {
 
+    boolean existsByIdAndRestauranteId(Long productoId, Long restauranteId);
+
     Optional<ProductoJpaEntity> findByProductoIdAndRestauranteId(Long productoId, Long restauranteId);
 
     List<ProductoJpaEntity> findByRestauranteId(Long restauranteId);

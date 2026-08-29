@@ -52,7 +52,6 @@ public class ProductoMapper {
         if (domain == null || entity == null) {
             return;
         }
-        entity.setRestauranteId(domain.getRestaurante_id());
         entity.setCategoriaId(domain.getCategoria_id());
         entity.setNombre(domain.getNombre());
         entity.setDescripcion(domain.getDescripcion());
