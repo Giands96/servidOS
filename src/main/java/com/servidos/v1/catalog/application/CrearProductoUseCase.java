@@ -43,8 +43,12 @@ public class CrearProductoUseCase {
 
     @Transactional
     public Producto ejecutar(Command cmd, Long restauranteId) {
-
+        //* Validar tenant - nunca confiar en el frontend
+        if (restauranteId == null) {
+            throw new BusinessException("Restaurante no identificado");
+        }
         validar(cmd, restauranteId);
+
         //* Crear el dominio Producto (POJO puro, sin JPA)
         Producto domain = Producto.crear(
                 restauranteId,
@@ -55,14 +59,23 @@ public class CrearProductoUseCase {
                 cmd.precio(),
                 cmd.estado(),
                 cmd.tiempoPreparacion());
+
+
         // 4. Mapear a JPA Entity y persistir
         ProductoJpaEntity entity = productoMapper.toEntity(domain);
         ProductoJpaEntity saved = productoRepository.save(entity);
+
         // 5. Mapear de vuelta a dominio para retornar (el controller mapeará a DTO)
         return productoMapper.toDomain(saved);
     }
 
     private void validar(Command cmd, Long restauranteId) {
+        if(cmd.nombre() == null || cmd.nombre().trim().isEmpty()) {
+            throw new BusinessException("El nombre del producto es obligatorio");
+        }
+        if(cmd.estado() == null) {
+            throw new BusinessException("El estado del producto es obligatorio");
+        }
         // Unicidad por tenant (aislamiento multi-tenancy)
         if (productoRepository.existsByNombreAndRestauranteId(cmd.nombre().trim(), restauranteId)) {
             throw new BusinessException("Ya existe un producto con ese nombre en este restaurante");
