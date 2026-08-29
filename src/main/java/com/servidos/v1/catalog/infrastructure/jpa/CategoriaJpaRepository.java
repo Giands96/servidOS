@@ -9,6 +9,8 @@ import java.util.Optional;
 @Repository
 public interface CategoriaJpaRepository extends JpaRepository<CategoriaJpaEntity, Long> {
 
+    boolean existsByIdAndRestauranteId(Long categoriaId, Long restauranteId);
+
     Optional<CategoriaJpaEntity> findByCategoriaIdAndRestauranteId(Long categoriaId, Long restauranteId);
 
     List<CategoriaJpaEntity> findByRestauranteId(Long restauranteId);

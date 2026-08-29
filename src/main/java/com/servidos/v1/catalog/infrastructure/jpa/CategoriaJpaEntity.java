@@ -3,6 +3,7 @@ package com.servidos.v1.catalog.infrastructure.jpa;
 import com.servidos.v1.catalog.domain.EstadoCategoria;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
