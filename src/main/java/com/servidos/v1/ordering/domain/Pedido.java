@@ -25,7 +25,14 @@ public class Pedido {
     private LocalDateTime created_at;
     private LocalDateTime updated_at;
 
-    public static Pedido crear(Long restaurante_id, Long usuario_id, Long mesa_id, TipoPedido tipoPedido, String observacion, String repartidor_nombre, BigDecimal total) {
+    public static Pedido crear(Long restaurante_id,
+                               Long usuario_id,
+                               Long mesa_id,
+                               TipoPedido tipoPedido,
+                               String observacion,
+                               String repartidor_nombre,
+                               EstadoPedido estado,
+                               BigDecimal total) {
         if (restaurante_id == null) throw new BusinessException("El restaurante_id es obligatorio");
         if (tipoPedido == null) throw new BusinessException("El tipo de pedido es obligatorio");
         if (tipoPedido == TipoPedido.MESA && mesa_id == null) throw new BusinessException("La mesa es obligatoria para pedidos en mesa");
@@ -37,7 +44,7 @@ public class Pedido {
                 .tipoPedido(tipoPedido)
                 .observacion(observacion)
                 .repartidor_nombre(repartidor_nombre)
-                .estado(EstadoPedido.PENDIENTE)
+                .estado(estado != null ? estado : EstadoPedido.PENDIENTE)
                 .total(total != null ? total : BigDecimal.ZERO)
                 .build();
     }

@@ -40,8 +40,8 @@ public class CrearPedidoUseCase {
         if (restauranteId == null) throw new BusinessException("Restaurante no identificado");
         validar(cmd, restauranteId);
 
-        // Crear pedido sin total inicial
-        Pedido pedidoDomain = Pedido.crear(restauranteId, null, cmd.mesaId(), cmd.tipoPedido(), cmd.observacion(), cmd.repartidorNombre(), BigDecimal.ZERO);
+        // Crear pedido sin total inicial - estado siempre PENDIENTE (no viene del frontend)
+        Pedido pedidoDomain = Pedido.crear(restauranteId, null, cmd.mesaId(), cmd.tipoPedido(), cmd.observacion(), cmd.repartidorNombre(), com.servidos.v1.ordering.domain.EstadoPedido.PENDIENTE, BigDecimal.ZERO);
         PedidoJpaEntity pedidoEntity = pedidoMapper.toEntity(pedidoDomain);
         PedidoJpaEntity savedPedido = pedidoRepository.save(pedidoEntity);
 
