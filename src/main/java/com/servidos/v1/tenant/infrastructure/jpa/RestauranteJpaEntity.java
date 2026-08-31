@@ -10,13 +10,29 @@ import java.time.LocalDateTime;
 @Entity @Table(name = "restaurante", uniqueConstraints = @UniqueConstraint(columnNames = "slug"))
 @Data @NoArgsConstructor @AllArgsConstructor
 public class RestauranteJpaEntity {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) @Column(name = "restaurante_id") private Long restauranteId;
-    @Column(name = "slug", nullable = false, unique = true, length = 100) private String slug;
-    @Column(name = "nombre", nullable = false, length = 150) private String nombre;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "restaurante_id")
+    private Long restauranteId;
+    @Column(name = "slug", nullable = false, unique = true, length = 100)
+    private String slug;
+    @Column(name = "nombre", nullable = false, length = 150)
+    private String nombre;
     @Column(name = "direccion", length = 255) private String direccion;
-    @Enumerated(EnumType.STRING) @Column(name = "estado", nullable = false, length = 20) private EstadoRestaurante estado;
-    @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
-    @Column(name = "updated_at", nullable = false) private LocalDateTime updatedAt;
-    @PrePersist protected void onCreate() { LocalDateTime now = LocalDateTime.now(); this.createdAt = now; this.updatedAt = now; }
-    @PreUpdate protected void onUpdate() { this.updatedAt = LocalDateTime.now(); }
+    @Enumerated(EnumType.STRING) @Column(name = "estado", nullable = false, length = 20)
+    private EstadoRestaurante estado;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now; this.updatedAt = now;
+    }
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }
