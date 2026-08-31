@@ -2,6 +2,7 @@ package com.servidos.v1.ordering.application;
 
 import com.servidos.v1.catalog.infrastructure.jpa.ProductoJpaRepository;
 import com.servidos.v1.ordering.domain.DetallePedido;
+import com.servidos.v1.ordering.domain.EstadoPedido;
 import com.servidos.v1.ordering.domain.Pedido;
 import com.servidos.v1.ordering.domain.TipoPedido;
 import com.servidos.v1.ordering.domain.event.PedidoCreadoEvent;
@@ -31,7 +32,7 @@ public class CrearPedidoUseCase {
     private final DetallePedidoMapper detalleMapper;
     private final EventPublisher eventPublisher;
 
-    public record Command(TipoPedido tipoPedido, Long mesaId, String observacion, String repartidorNombre, List<Item> items) {
+    public record Command(TipoPedido tipoPedido, EstadoPedido estado, Long mesaId, String observacion, String repartidorNombre, List<Item> items) {
         public record Item(Long productoId, Integer cantidad, String observacion) {}
     }
 
@@ -40,8 +41,15 @@ public class CrearPedidoUseCase {
         if (restauranteId == null) throw new BusinessException("Restaurante no identificado");
         validar(cmd, restauranteId);
 
-        // Crear pedido sin total inicial - estado siempre PENDIENTE (no viene del frontend)
-        Pedido pedidoDomain = Pedido.crear(restauranteId, null, cmd.mesaId(), cmd.tipoPedido(), cmd.observacion(), cmd.repartidorNombre(), com.servidos.v1.ordering.domain.EstadoPedido.PENDIENTE, BigDecimal.ZERO);
+        // Estado variable desde frontend para mayor flexibilidad (default PENDIENTE si null, validado en dominio)
+        Pedido pedidoDomain = Pedido.crear(restauranteId,
+                null,
+                cmd.mesaId(),
+                cmd.tipoPedido(),
+                cmd.observacion(),
+                cmd.repartidorNombre(),
+                cmd.estado(),
+                BigDecimal.ZERO);
         PedidoJpaEntity pedidoEntity = pedidoMapper.toEntity(pedidoDomain);
         PedidoJpaEntity savedPedido = pedidoRepository.save(pedidoEntity);
 
