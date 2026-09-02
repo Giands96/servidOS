@@ -5,6 +5,7 @@ import com.servidos.v1.identity.domain.UsuarioRestaurante;
 import com.servidos.v1.identity.domain.event.UsuarioCreadoEvent;
 import com.servidos.v1.identity.infrastructure.RolRestauranteJpaRepository;
 import com.servidos.v1.identity.infrastructure.UsuarioJpaRepository;
+import com.servidos.v1.identity.infrastructure.UsuarioRestauranteJpaEntity;
 import com.servidos.v1.identity.infrastructure.UsuarioRestauranteJpaRepository;
 import com.servidos.v1.identity.infrastructure.mapper.UsuarioMapper;
 import com.servidos.v1.shared.event.EventPublisher;
@@ -70,6 +71,12 @@ public class CrearUsuarioUseCase {
         if (cmd.nombre() == null || cmd.nombre().trim().isEmpty()) {
             throw new BusinessException("El nombre es obligatorio");
         }
+
+        // Validar que el apellido no sea nulo o vacío
+        if(cmd.apellido() == null || cmd.apellido().trim().isEmpty()) {
+            throw new BusinessException("El apellido es obligatorio");
+        }
+
         if (cmd.email() == null || cmd.email().trim().isEmpty()) {
             throw new BusinessException("El email es obligatorio");
         }
@@ -84,12 +91,12 @@ public class CrearUsuarioUseCase {
         }
     }
 
-    private com.servidos.v1.identity.infrastructure.UsuarioRestauranteJpaEntity mapToEntity(UsuarioRestaurante d) {
-        var e = new com.servidos.v1.identity.infrastructure.UsuarioRestauranteJpaEntity();
-        e.setUsuarioId(d.getUsuario_id());
-        e.setRestauranteId(d.getRestaurante_id());
-        e.setRolRestauranteId(d.getRol_restaurante_id());
-        e.setEstado(d.getEstado());
-        return e;
+    private UsuarioRestauranteJpaEntity mapToEntity(UsuarioRestaurante domain) {
+        var entity = new UsuarioRestauranteJpaEntity();
+        entity.setUsuarioId(domain.getUsuario_id());
+        entity.setRestauranteId(domain.getRestaurante_id());
+        entity.setRolRestauranteId(domain.getRol_restaurante_id());
+        entity.setEstado(domain.getEstado());
+        return entity;
     }
 }

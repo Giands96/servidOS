@@ -32,8 +32,15 @@ public class CrearPedidoUseCase {
     private final DetallePedidoMapper detalleMapper;
     private final EventPublisher eventPublisher;
 
-    public record Command(TipoPedido tipoPedido, EstadoPedido estado, Long mesaId, String observacion, String repartidorNombre, List<Item> items) {
-        public record Item(Long productoId, Integer cantidad, String observacion) {}
+    public record Command(TipoPedido tipoPedido,
+                          EstadoPedido estado,
+                          Long mesaId,
+                          String observacion,
+                          String repartidorNombre,
+                          List<Item> items) {
+        public record Item(Long productoId,
+                           Integer cantidad,
+                           String observacion) {}
     }
 
     @Transactional
@@ -41,7 +48,6 @@ public class CrearPedidoUseCase {
         if (restauranteId == null) throw new BusinessException("Restaurante no identificado");
         validar(cmd, restauranteId);
 
-        // Estado variable desde frontend para mayor flexibilidad (default PENDIENTE si null, validado en dominio)
         Pedido pedidoDomain = Pedido.crear(restauranteId,
                 null,
                 cmd.mesaId(),
@@ -58,7 +64,13 @@ public class CrearPedidoUseCase {
         for (Command.Item item : cmd.items()) {
             var producto = productoRepository.findByProductoIdAndRestauranteId(item.productoId(), restauranteId)
                     .orElseThrow(() -> new BusinessException("Producto no encontrado: " + item.productoId()));
-            DetallePedido detalle = DetallePedido.crear(restauranteId, savedPedido.getPedidoId(), item.productoId(), item.cantidad(), producto.getPrecio(), item.observacion());
+            DetallePedido detalle = DetallePedido.crear(
+                    restauranteId,
+                    savedPedido.getPedidoId(),
+                    item.productoId(),
+                    item.cantidad(),
+                    producto.getPrecio(),
+                    item.observacion());
             total = total.add(detalle.getSubtotal());
             detallesToSave.add(detalleMapper.toEntity(detalle));
         }
