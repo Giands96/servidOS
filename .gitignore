@@ -38,5 +38,6 @@ docs/
 .codegraph/
 graphify-out/
 .atl/
-notes/.obsidian/workspace.json
-notes/.obsidian/hotkeys.json
+notes/
+PROJECT_CONTEXT.md
+BD.sql
