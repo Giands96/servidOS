@@ -15,6 +15,13 @@ cssclasses:
 
 # ServidOS — Módulos Implementados
 
+> [!info] Vault reordenado
+> Módulos atomizados en `notes/modulos/` — ver [[modulos/Catalog]] · [[modulos/Ordering]] · [[modulos/Tenant]] · [[modulos/Identity]] · [[modulos/Payment]] · [[modulos/Kitchen]] · [[modulos/Reporting]]
+
+![[modulos/Catalog]]
+![[modulos/Ordering]]
+![[modulos/Tenant]]
+
 Parte de [[ServidOS - MOC]] · Estado: [[ServidOS - Estado Actual]] · Decisiones: [[ServidOS - Decisiones]]
 
 > [!abstract] Patrón aplicado
