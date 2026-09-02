@@ -31,3 +31,12 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Desarrollo — no versionar ###
+docs/
+.superpowers/
+.codegraph/
+graphify-out/
+.atl/
+notes/.obsidian/workspace.json
+notes/.obsidian/hotkeys.json
