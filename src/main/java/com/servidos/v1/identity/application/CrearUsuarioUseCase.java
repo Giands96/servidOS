@@ -53,7 +53,7 @@ public class CrearUsuarioUseCase {
         String hash = passwordEncoder.encode(cmd.password());
 
         Usuario domain = Usuario.crear(cmd.nombre(), cmd.apellido(), emailLower, hash);
-        var savedEntity = usuarioRepository.save(usuarioMapper.toEntity(domain));
+        var savedEntity = usuarioRepository.saveAndFlush(usuarioMapper.toEntity(domain));
         Usuario saved = usuarioMapper.toDomain(savedEntity);
 
         UsuarioRestaurante ur = UsuarioRestaurante.crear(saved.getUsuario_id(), restauranteId, cmd.rolRestauranteId());
