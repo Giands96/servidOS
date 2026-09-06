@@ -1,6 +1,5 @@
 package com.servidos.v1.ordering.application;
 
-import com.servidos.v1.catalog.infrastructure.jpa.ProductoJpaRepository;
 import com.servidos.v1.ordering.domain.DetallePedido;
 import com.servidos.v1.ordering.domain.EstadoPedido;
 import com.servidos.v1.ordering.domain.Pedido;
@@ -27,13 +26,12 @@ import java.util.List;
 public class CrearPedidoUseCase {
     private final PedidoJpaRepository pedidoRepository;
     private final DetallePedidoJpaRepository detalleRepository;
-    private final ProductoJpaRepository productoRepository;
+    private final ProductCatalogPort productoCatalog;
     private final PedidoMapper pedidoMapper;
     private final DetallePedidoMapper detalleMapper;
     private final EventPublisher eventPublisher;
 
     public record Command(TipoPedido tipoPedido,
-                          EstadoPedido estado,
                           Long mesaId,
                           String observacion,
                           String repartidorNombre,
@@ -54,7 +52,7 @@ public class CrearPedidoUseCase {
                 cmd.tipoPedido(),
                 cmd.observacion(),
                 cmd.repartidorNombre(),
-                cmd.estado(),
+                EstadoPedido.PENDIENTE,
                 BigDecimal.ZERO);
         PedidoJpaEntity pedidoEntity = pedidoMapper.toEntity(pedidoDomain);
         PedidoJpaEntity savedPedido = pedidoRepository.save(pedidoEntity);
@@ -62,14 +60,14 @@ public class CrearPedidoUseCase {
         BigDecimal total = BigDecimal.ZERO;
         List<DetallePedidoJpaEntity> detallesToSave = new ArrayList<>();
         for (Command.Item item : cmd.items()) {
-            var producto = productoRepository.findByProductoIdAndRestauranteId(item.productoId(), restauranteId)
+            var producto = productoCatalog.findPrecioByIdAndRestaurante(item.productoId(), restauranteId)
                     .orElseThrow(() -> new BusinessException("Producto no encontrado: " + item.productoId()));
             DetallePedido detalle = DetallePedido.crear(
                     restauranteId,
                     savedPedido.getPedidoId(),
                     item.productoId(),
                     item.cantidad(),
-                    producto.getPrecio(),
+                    producto,
                     item.observacion());
             total = total.add(detalle.getSubtotal());
             detallesToSave.add(detalleMapper.toEntity(detalle));
@@ -90,9 +88,6 @@ public class CrearPedidoUseCase {
         for (Command.Item item : cmd.items()) {
             if (item.productoId() == null) throw new BusinessException("El producto es obligatorio");
             if (item.cantidad() == null || item.cantidad() <= 0) throw new BusinessException("La cantidad debe ser mayor a 0");
-            if (!productoRepository.existsByIdAndRestauranteId(item.productoId(), restauranteId)) {
-                throw new BusinessException("El producto no existe o no pertenece al restaurante: " + item.productoId());
-            }
         }
         if (cmd.tipoPedido() == TipoPedido.MESA && cmd.mesaId() == null) {
             throw new BusinessException("La mesa es obligatoria para pedidos en mesa");
