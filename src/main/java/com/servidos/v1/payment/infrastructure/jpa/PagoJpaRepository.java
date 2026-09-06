@@ -9,7 +9,7 @@ import java.util.Optional;
 
 @Repository
 public interface PagoJpaRepository extends JpaRepository<PagoJpaEntity, Long> {
-    boolean existsByPedidoIdAndEstado(Long pedidoId, EstadoPago estado);
+    boolean existsByPedidoIdAndRestauranteIdAndEstado(Long pedidoId, Long restauranteId, EstadoPago estado);
     Optional<PagoJpaEntity> findByPedidoIdAndRestauranteId(Long pedidoId, Long restauranteId);
     List<PagoJpaEntity> findByRestauranteId(Long restauranteId);
 }

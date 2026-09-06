@@ -5,11 +5,13 @@ import com.servidos.v1.payment.domain.EstadoPago;
 import com.servidos.v1.payment.domain.MetodoPago;
 import com.servidos.v1.payment.domain.Pago;
 import com.servidos.v1.payment.domain.event.PagoRegistradoEvent;
+import com.servidos.v1.payment.infrastructure.jpa.PagoJpaEntity;
 import com.servidos.v1.payment.infrastructure.jpa.PagoJpaRepository;
 import com.servidos.v1.payment.infrastructure.mapper.PagoMapper;
 import com.servidos.v1.shared.event.EventPublisher;
 import com.servidos.v1.shared.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,7 +38,7 @@ public class RegistrarPagoUseCase {
         var pedido = pedidoRepository.findByPedidoIdAndRestauranteId(cmd.pedidoId(), restauranteId)
                 .orElseThrow(() -> new BusinessException("Pedido no encontrado"));
 
-        if (pagoRepository.existsByPedidoIdAndEstado(cmd.pedidoId(), EstadoPago.PAGADO)) {
+        if (pagoRepository.existsByPedidoIdAndRestauranteIdAndEstado(cmd.pedidoId(), restauranteId, EstadoPago.PAGADO)) {
             throw new BusinessException("Pedido ya pagado");
         }
 
@@ -51,7 +53,13 @@ public class RegistrarPagoUseCase {
         }
 
         Pago pago = Pago.crear(cmd.pedidoId(), restauranteId, usuarioId, cmd.metodoPago(), total, vuelto, cmd.referenciaExterna());
-        var saved = pagoRepository.save(pagoMapper.toEntity(pago));
+        PagoJpaEntity saved = null;
+        try{
+            saved = pagoRepository.saveAndFlush(pagoMapper.toEntity(pago));
+
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException("Pedido ya pagado");
+        }
         eventPublisher.publish(new PagoRegistradoEvent(saved.getPagoId(), restauranteId, saved.getPedidoId()));
         return pagoMapper.toDomain(saved);
     }

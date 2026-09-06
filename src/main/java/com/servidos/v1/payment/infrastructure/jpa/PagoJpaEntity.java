@@ -11,7 +11,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "pago")
+@Table(name = "pago", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"pedido_id"}) //* unique constraint para asegurar que un pedido solo tenga un pago asociado
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
