@@ -66,7 +66,7 @@ public class ActualizarProductoUseCase {
     private void validar(Command cmd, Long restauranteId) {
         //* Validar si existe el producto
         if (cmd.categoriaId() != null) {
-            if (!categoriaRepository.existsByIdAndRestauranteId(cmd.categoriaId(), restauranteId))
+            if (!categoriaRepository.existsByCategoriaIdAndRestauranteId(cmd.categoriaId(), restauranteId))
                 throw new BusinessException("Categoría no encontrada");
         }
     }
