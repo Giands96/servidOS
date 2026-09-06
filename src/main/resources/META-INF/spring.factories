@@ -1,0 +1,2 @@
+org.springframework.boot.EnvironmentPostProcessor=\
+com.servidos.v1.shared.config.ProductionSecretsEnvironmentPostProcessor
