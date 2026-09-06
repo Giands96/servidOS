@@ -41,3 +41,5 @@ graphify-out/
 notes/
 PROJECT_CONTEXT.md
 BD.sql
+.env
+.env.local
