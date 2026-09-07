@@ -15,42 +15,29 @@ import java.util.Date;
 @Service
 public class JwtService {
 
-    private String header = "Bearer ";
+    private final AuthProperties authProperties;
 
-    @Value("${servidos.auth.secret}")
-    private String secretKey;
-
-    @Value("${servidos.auth.issuer}")
-    private String issuer;
-
-    @Value("${servidos.auth.audience}")
-    private String audience;
-
-    @Value("${servidos.auth.access-ttl}")
-    private Duration accessTtl;
-
-    @Value("${servidos.auth.refresh-absolute-ttl}")
-    private Duration refreshTtl;
+    // Spring inyecta AuthProperties automáticamente por el constructor
+    public JwtService(AuthProperties authProperties) {
+        this.authProperties = authProperties;
+    }
 
 
-    //* PASOS PARA CREAR EL CUERPO DEL TOKEN
-
-    //* 1. Crear un método para generar el token de acceso y el token de actualización.
     private SecretKey getSigningKey() {
-        byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
+        byte[] keyBytes = authProperties.secret().getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String generate(Long usuarioId, Long restauranteId, Long rolId){
+    public String generate(Long usuarioId, Long restauranteId, Long rolId) {
         Date now = new Date();
-        Date expirationDate = new Date(now.getTime() + accessTtl.toMillis());
+        Date expirationDate = new Date(now.getTime() + authProperties.accessTtl().toMillis());
 
         return Jwts.builder()
                 .subject(usuarioId.toString())
                 .claim("restauranteId", restauranteId)
                 .claim("rolId", rolId)
-                .claim("aud", audience)
-                .issuer(issuer)
+                .claim("aud", authProperties.audience())
+                .issuer(authProperties.issuer())
                 .issuedAt(now)
                 .expiration(expirationDate)
                 .signWith(getSigningKey(), Jwts.SIG.HS256)
@@ -60,8 +47,10 @@ public class JwtService {
     public Claims extractAllClaims(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
-                .requireIssuer(issuer)
-                .build().parseSignedClaims(token).getPayload();
+                .requireIssuer(authProperties.issuer())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
     public Long extractRestauranteId(String token) {
@@ -70,6 +59,10 @@ public class JwtService {
 
     public Long extractUsuarioId(String token) {
         return Long.parseLong(extractAllClaims(token).getSubject());
+    }
+
+    public Long extractRolId(String token) {
+        return extractAllClaims(token).get("rolId", Long.class);
     }
 
     public boolean isTokenValid(String token) {
