@@ -11,4 +11,11 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+servidos:
+  auth:
+    secret: ${JWT_SECRET}
+    issuer: servidos
+    audience: servidos-web
+    access-ttl: 10m
+    refresh-absolute-ttl: 7d
 debug: false

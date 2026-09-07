@@ -7,3 +7,11 @@ spring:
     show-sql: false
 
 debug: false
+
+servidos:
+  auth:
+    secret: ${JWT_SECRET}
+    issuer: servidos
+    audience: servidos-web
+    access-ttl: 10m
+    refresh-absolute-ttl: 7d
