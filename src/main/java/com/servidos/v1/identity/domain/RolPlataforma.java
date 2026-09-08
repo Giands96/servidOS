@@ -9,10 +9,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class RolPlataforma {
 
-    Long rol_plataforma_id;
-    String nombre;
-    String descripcion;
-    EstadoRol estado;
+    private Long rol_plataforma_id;
+    private String nombre;
+    private String descripcion;
+    private EstadoRol estado;
 
 
 }
