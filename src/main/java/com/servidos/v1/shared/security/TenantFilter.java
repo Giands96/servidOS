@@ -36,12 +36,12 @@ public class TenantFilter extends OncePerRequestFilter {
             if(jwtService.isTokenValid(jwt) && SecurityContextHolder.getContext().getAuthentication() == null) {
                 Long usuarioId = jwtService.extractUsuarioId(jwt);
                 Long restauranteId = jwtService.extractRestauranteId(jwt);
-                Long rolId = jwtService.extractRolId(jwt);
+                String rol = jwtService.extractRol(jwt);
                 CurrentUser.setCurrentUser(usuarioId);
-                CurrentUser.setRole(rolId);
+                CurrentUser.setRole(rol);
                 TenantContext.setRestauranteId(restauranteId);
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(usuarioId,
-                        null, Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + rolId)));
+                        null, Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + rol)));
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
