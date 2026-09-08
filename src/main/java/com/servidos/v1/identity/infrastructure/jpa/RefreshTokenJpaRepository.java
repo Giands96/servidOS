@@ -8,7 +8,7 @@ import java.util.UUID;
 
 public interface RefreshTokenJpaRepository extends JpaRepository<RefreshTokenJpaEntity, Long> {
     Optional<RefreshTokenJpaEntity> findByHashToken(String token);
-    Optional<RefreshTokenJpaEntity> findByUsuarioId(Long usuarioId);
+    List<RefreshTokenJpaEntity> findByUsuarioId(Long usuarioId);
     List<RefreshTokenJpaEntity> findByFamiliaId(UUID familiaId);
 
 }

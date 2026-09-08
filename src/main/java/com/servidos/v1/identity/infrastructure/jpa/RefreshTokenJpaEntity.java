@@ -22,6 +22,9 @@ public class RefreshTokenJpaEntity {
     @Column(name="usuario_id", nullable=false)
     private Long usuarioId;
 
+    @Column(name="restaurante_id")
+    private Long restauranteId;
+
     @Column(name="familia_id", nullable=false)
     private UUID familiaId;
 
