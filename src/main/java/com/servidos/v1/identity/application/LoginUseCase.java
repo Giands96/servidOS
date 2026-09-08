@@ -1,7 +1,7 @@
 package com.servidos.v1.identity.application;
 
 import com.servidos.v1.identity.domain.EstadoUsuario;
-import com.servidos.v1.identity.infrastructure.JwtService;
+import com.servidos.v1.identity.infrastructure.security.JwtService;
 import com.servidos.v1.identity.infrastructure.UsuarioJpaRepository;
 import com.servidos.v1.identity.infrastructure.UsuarioRestauranteJpaRepository;
 import com.servidos.v1.shared.exception.BusinessException;

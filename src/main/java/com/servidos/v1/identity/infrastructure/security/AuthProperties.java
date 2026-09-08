@@ -1,6 +1,5 @@
-package com.servidos.v1.identity.infrastructure;
+package com.servidos.v1.identity.infrastructure.security;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.nio.charset.StandardCharsets;
@@ -32,8 +31,4 @@ public record AuthProperties (
            throw new IllegalArgumentException("refreshAbsoluteTtl debe ser un valor positivo");
        }
     }
-
-
-
-
 }

@@ -1,16 +1,16 @@
-package com.servidos.v1.identity.infrastructure;
+package com.servidos.v1.identity.infrastructure.security;
 
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.Date;
+import java.util.UUID;
 
 @Service
 public class JwtService {
@@ -34,9 +34,10 @@ public class JwtService {
 
         return Jwts.builder()
                 .subject(usuarioId.toString())
+                .id(UUID.randomUUID().toString())
                 .claim("restauranteId", restauranteId)
                 .claim("rolId", rolId)
-                .claim("aud", authProperties.audience())
+                .audience().add(authProperties.audience()).and()
                 .issuer(authProperties.issuer())
                 .issuedAt(now)
                 .expiration(expirationDate)
@@ -48,6 +49,7 @@ public class JwtService {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
                 .requireIssuer(authProperties.issuer())
+                .requireAudience(authProperties.audience())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
@@ -69,7 +71,7 @@ public class JwtService {
         try {
             extractAllClaims(token);
             return true;
-        } catch (Exception e) {
+        } catch (JwtException e) {
             return false;
         }
     }

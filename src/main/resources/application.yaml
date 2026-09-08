@@ -10,7 +10,9 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-
+  threads:
+    virtual:
+      enabled: true
 servidos:
   auth:
     secret: ${JWT_SECRET}
@@ -19,3 +21,4 @@ servidos:
     access-ttl: 10m
     refresh-absolute-ttl: 7d
 debug: false
+
