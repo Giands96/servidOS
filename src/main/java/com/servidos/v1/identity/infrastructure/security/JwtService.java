@@ -28,7 +28,7 @@ public class JwtService {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String generate(Long usuarioId, Long restauranteId, Long rolId) {
+    public String generate(Long usuarioId, Long restauranteId, String rol) {
         Date now = new Date();
         Date expirationDate = new Date(now.getTime() + authProperties.accessTtl().toMillis());
 
@@ -36,7 +36,7 @@ public class JwtService {
                 .subject(usuarioId.toString())
                 .id(UUID.randomUUID().toString())
                 .claim("restauranteId", restauranteId)
-                .claim("rolId", rolId)
+                .claim("rol", rol)
                 .audience().add(authProperties.audience()).and()
                 .issuer(authProperties.issuer())
                 .issuedAt(now)
@@ -63,8 +63,8 @@ public class JwtService {
         return Long.parseLong(extractAllClaims(token).getSubject());
     }
 
-    public Long extractRolId(String token) {
-        return extractAllClaims(token).get("rolId", Long.class);
+    public String extractRol(String token) {
+        return extractAllClaims(token).get("rol", String.class);
     }
 
     public boolean isTokenValid(String token) {
