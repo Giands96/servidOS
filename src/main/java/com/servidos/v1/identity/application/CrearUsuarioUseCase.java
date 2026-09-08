@@ -10,6 +10,7 @@ import com.servidos.v1.identity.infrastructure.UsuarioRestauranteJpaRepository;
 import com.servidos.v1.identity.infrastructure.mapper.UsuarioMapper;
 import com.servidos.v1.shared.event.EventPublisher;
 import com.servidos.v1.shared.exception.BusinessException;
+import com.servidos.v1.shared.exception.ConflictException;
 import com.servidos.v1.tenant.infrastructure.jpa.RestauranteJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -39,7 +40,7 @@ public class CrearUsuarioUseCase {
         String emailLower = cmd.email().trim().toLowerCase();
 
         if (usuarioRepository.existsByEmail(emailLower)) {
-            throw new BusinessException("El email ya existe");
+            throw new ConflictException("El email ya existe");
         }
 
         if (!restauranteRepository.existsById(restauranteId)) {
