@@ -13,6 +13,7 @@ import com.servidos.v1.shared.security.CurrentUser;
 import com.servidos.v1.shared.security.TenantContext;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -34,6 +35,9 @@ public class AuthController {
     private static final String REFRESH_COOKIE = "refresh_token";
     private static final String NON_TRIVIAL_HEADER = "X-Requested-With";
     private static final String NON_TRIVIAL_VALUE = "XMLHttpRequest";
+
+    @Value("${app.security.secure-cookie}")
+    private boolean secureCookie;
 
     private final LoginUseCase loginUseCase;
     private final RefreshTokenService refreshTokenService;
@@ -111,7 +115,7 @@ public class AuthController {
     private ResponseCookie refreshCookie(String valor) {
         return ResponseCookie.from(REFRESH_COOKIE, valor)
                 .httpOnly(true)
-                .secure(true)
+                .secure(secureCookie)
                 .sameSite("Lax")
                 .path("/api/v1/auth")
                 .maxAge(Duration.ofDays(7))
@@ -121,7 +125,7 @@ public class AuthController {
     private ResponseCookie limpiarCookie() {
         return ResponseCookie.from(REFRESH_COOKIE, "")
                 .httpOnly(true)
-                .secure(true)
+                .secure(secureCookie)
                 .sameSite("Lax")
                 .path("/api/v1/auth")
                 .maxAge(0)

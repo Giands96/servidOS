@@ -20,5 +20,8 @@ servidos:
     audience: servidos-web
     access-ttl: 10m
     refresh-absolute-ttl: 7d
+app:
+  security:
+    secure-cookie: true
 debug: false
 
