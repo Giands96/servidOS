@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/servidos}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    show-sql: false
+
+debug: false
+
+servidos:
+  auth:
+    secret: ${JWT_SECRET}
+    issuer: servidos
+    audience: servidos-web
+    access-ttl: 10m
+    refresh-absolute-ttl: 7d
+app:
+  security:
+    secure-cookie: true

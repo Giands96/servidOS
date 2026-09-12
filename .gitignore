@@ -43,3 +43,5 @@ PROJECT_CONTEXT.md
 BD.sql
 .env
 .env.local
+.env.*
+!.env.example
