@@ -27,8 +27,13 @@ public class LoginUseCase {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final LoginAttemptService attemptService;
 
-    public record Command(String email, String password) {}
+    public record Command(String email, String password, String clientIp) {
+        public Command(String email, String password) {
+            this(email, password, "desconocida");
+        }
+    }
 
     public record Session(String accessToken, String refreshToken) {}
 
@@ -40,15 +45,24 @@ public class LoginUseCase {
         }
 
         String emailLower = cmd.email().trim().toLowerCase();
+        String ip = cmd.clientIp() != null ? cmd.clientIp() : "desconocida";
+
+        // P1.8: bloqueado es indistinguible de credencial inválida (no enumera emails).
+        attemptService.exigirPermitido(emailLower, ip);
 
         var usuarioEntity = usuarioRepository.findByEmail(emailLower)
-                .orElseThrow(() -> new BusinessException("Credenciales inválidas"));
+                .orElseThrow(() -> {
+                    attemptService.registrarFallo(emailLower, ip);
+                    return new BusinessException("Credenciales inválidas");
+                });
 
         if (!passwordEncoder.matches(cmd.password(), usuarioEntity.getPasswordHash())) {
+            attemptService.registrarFallo(emailLower, ip);
             throw new BusinessException("Credenciales inválidas");
         }
 
         if (usuarioEntity.getEstado() != EstadoUsuario.ACTIVO) {
+            attemptService.registrarFallo(emailLower, ip);
             throw new BusinessException("Credenciales inválidas");
         }
 
@@ -77,6 +91,7 @@ public class LoginUseCase {
 
         usuarioEntity.setUltimoAcceso(LocalDateTime.now());
         usuarioRepository.save(usuarioEntity);
+        attemptService.limpiar(emailLower, ip);
 
         String access = jwtService.generate(usuarioEntity.getUsuarioId(), restauranteId, rol);
         String refresh = refreshTokenService.create(usuarioEntity.getUsuarioId(), restauranteId);

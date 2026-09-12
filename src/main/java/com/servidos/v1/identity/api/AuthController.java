@@ -11,6 +11,7 @@ import com.servidos.v1.shared.exception.BusinessException;
 import com.servidos.v1.shared.exception.UnauthorizedException;
 import com.servidos.v1.shared.security.CurrentUser;
 import com.servidos.v1.shared.security.TenantContext;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -45,10 +46,12 @@ public class AuthController {
     private final UsuarioJpaRepository usuarioRepository;
 
     @PostMapping("/login")
-    public ResponseEntity<TokenResponse> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<TokenResponse> login(
+            @Valid @RequestBody LoginRequest request, HttpServletRequest http) {
         final LoginUseCase.Session session;
         try {
-            session = loginUseCase.ejecutar(new LoginUseCase.Command(request.email(), request.password()));
+            session = loginUseCase.ejecutar(new LoginUseCase.Command(
+                    request.email(), request.password(), http.getRemoteAddr()));
         } catch (BusinessException e) {
             throw new UnauthorizedException("Credenciales inválidas");
         }
