@@ -12,6 +12,7 @@ import com.servidos.v1.identity.infrastructure.mapper.UsuarioMapper;
 import com.servidos.v1.shared.event.EventPublisher;
 import com.servidos.v1.shared.exception.BusinessException;
 import com.servidos.v1.shared.exception.ConflictException;
+import com.servidos.v1.shared.exception.ForbiddenException;
 import com.servidos.v1.shared.exception.UnauthorizedException;
 import com.servidos.v1.shared.security.CurrentUser;
 import com.servidos.v1.tenant.infrastructure.jpa.RestauranteJpaRepository;
@@ -105,7 +106,7 @@ public class CrearUsuarioUseCase {
         var actorMembresia = usuarioRestauranteRepository.findById(actorId);
         if (actorMembresia.isEmpty()
                 || !restauranteIdDestino.equals(actorMembresia.get().getRestauranteId())) {
-            throw new BusinessException("Operación cross-tenant rechazada");
+            throw new ForbiddenException("Operación cross-tenant rechazada");
         }
     }
 
@@ -119,7 +120,7 @@ public class CrearUsuarioUseCase {
         // otro ADMINISTRADOR; los roles operativos sí puede.
         if ("ADMINISTRADOR".equalsIgnoreCase(rolActor)
                 && "ADMINISTRADOR".equalsIgnoreCase(nombreRolObjetivo)) {
-            throw new BusinessException("No puedes otorgar un rol igual o superior al tuyo");
+            throw new ForbiddenException("No puedes otorgar un rol igual o superior al tuyo");
         }
     }
 

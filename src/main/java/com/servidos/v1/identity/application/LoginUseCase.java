@@ -74,19 +74,27 @@ public class LoginUseCase {
             if (usuarioRestaurante.get().getEstado() != EstadoUsuario.ACTIVO) {
                 throw new BusinessException("Credenciales inválidas");
             }
+            var rolRestaurante = rolRestauranteRepository.findById(usuarioRestaurante.get().getRolRestauranteId())
+                    .orElseThrow(() -> new BusinessException("Credenciales inválidas"));
+            if (!"ACTIVO".equalsIgnoreCase(rolRestaurante.getEstado())) {
+                throw new BusinessException("Credenciales inválidas");
+            }
             restauranteId = usuarioRestaurante.get().getRestauranteId();
-            rol = rolRestauranteRepository.findById(usuarioRestaurante.get().getRolRestauranteId())
-                    .orElseThrow(() -> new BusinessException("Credenciales inválidas"))
-                    .getNombre();
+            rol = rolRestaurante.getNombre();
+
+
         } else {
             var usuarioPlataforma = usuarioPlataformaRepository.findById(usuarioEntity.getUsuarioId())
                     .orElseThrow(() -> new BusinessException("Credenciales inválidas"));
             if (usuarioPlataforma.getEstado() != EstadoUsuario.ACTIVO) {
                 throw new BusinessException("Credenciales inválidas");
             }
-            rol = rolPlataformaRepository.findById(usuarioPlataforma.getRolPlataformaId())
-                    .orElseThrow(() -> new BusinessException("Credenciales inválidas"))
-                    .getNombre();
+            var rolPlataforma = rolPlataformaRepository.findById(usuarioPlataforma.getRolPlataformaId())
+                    .orElseThrow(() -> new BusinessException("Credenciales inválidas"));
+            if (!"ACTIVO".equalsIgnoreCase(rolPlataforma.getEstado())) {
+                throw new BusinessException("Credenciales inválidas");
+            }
+            rol = rolPlataforma.getNombre();
         }
 
         usuarioEntity.setUltimoAcceso(LocalDateTime.now());

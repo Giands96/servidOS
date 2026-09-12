@@ -80,18 +80,24 @@ public class RefreshTokenService {
             if (ur.getEstado() != EstadoUsuario.ACTIVO) {
                 throw new BusinessException("Refresh inválido");
             }
-            return rolRestauranteRepository.findById(ur.getRolRestauranteId())
-                    .orElseThrow(() -> new BusinessException("Refresh inválido"))
-                    .getNombre();
+            var rol = rolRestauranteRepository.findById(ur.getRolRestauranteId())
+                    .orElseThrow(() -> new BusinessException("Refresh inválido"));
+            if (!"ACTIVO".equalsIgnoreCase(rol.getEstado())) {
+                throw new BusinessException("Refresh inválido");
+            }
+            return rol.getNombre();
         }
         var up = usuarioPlataformaRepository.findById(usuarioId)
                 .orElseThrow(() -> new BusinessException("Refresh inválido"));
         if (up.getEstado() != EstadoUsuario.ACTIVO) {
             throw new BusinessException("Refresh inválido");
         }
-        return rolPlataformaRepository.findById(up.getRolPlataformaId())
-                .orElseThrow(() -> new BusinessException("Refresh inválido"))
-                .getNombre();
+        var rol = rolPlataformaRepository.findById(up.getRolPlataformaId())
+                .orElseThrow(() -> new BusinessException("Refresh inválido"));
+        if (!"ACTIVO".equalsIgnoreCase(rol.getEstado())) {
+            throw new BusinessException("Refresh inválido");
+        }
+        return rol.getNombre();
     }
 
     @Transactional
