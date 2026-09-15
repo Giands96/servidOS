@@ -1,6 +1,6 @@
 package com.servidos.v1.shared.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.servidos.v1.identity.infrastructure.security.JwtService;
 import com.servidos.v1.shared.exception.ErrorResponse;
 import jakarta.servlet.FilterChain;
@@ -8,6 +8,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -30,7 +31,9 @@ public class TenantFilter extends OncePerRequestFilter {
     private final ObjectMapper objectMapper;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
         final String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
@@ -68,9 +71,9 @@ public class TenantFilter extends OncePerRequestFilter {
 
     }
 
-    private void responderNoAutorizado(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    private void responderNoAutorizado(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response) throws IOException {
         String traceId = UUID.randomUUID().toString().substring(0, 8);
-        ErrorResponse cuerpo = ErrorResponse.builder()
+        ErrorResponse error = ErrorResponse.builder()
                 .timestamp(Instant.now())
                 .status(HttpStatus.UNAUTHORIZED.value() + " " + HttpStatus.UNAUTHORIZED.getReasonPhrase())
                 .message("Credenciales inválidas")
@@ -79,7 +82,7 @@ public class TenantFilter extends OncePerRequestFilter {
                 .build();
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.getWriter().write(objectMapper.writeValueAsString(cuerpo));
+        response.getWriter().write(objectMapper.writeValueAsString(error));
     }
 
 }
