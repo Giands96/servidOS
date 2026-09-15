@@ -1,5 +1,7 @@
 package com.servidos.v1.identity.application;
 
+import com.servidos.v1.identity.application.usuario.CrearUsuarioCommand;
+import com.servidos.v1.identity.application.usuario.CrearUsuarioUseCase;
 import com.servidos.v1.identity.infrastructure.RolRestauranteJpaEntity;
 import com.servidos.v1.identity.infrastructure.RolRestauranteJpaRepository;
 import com.servidos.v1.identity.infrastructure.UsuarioJpaRepository;
@@ -51,8 +53,8 @@ class CrearUsuarioSeguridadTest {
         CurrentUser.clear();
     }
 
-    private static CrearUsuarioUseCase.Command cmdBase() {
-        return new CrearUsuarioUseCase.Command("Ana", "Paz", "ana@demo.pe", "secreta123", 10L);
+    private static CrearUsuarioCommand cmdBase() {
+        return new CrearUsuarioCommand("Ana", "Paz", "ana@demo.pe", "secreta123", 10L);
     }
 
     @Test
