@@ -2,7 +2,8 @@ package com.servidos.v1.identity.api;
 
 import com.servidos.v1.identity.api.dto.RegistrarUsuarioRequest;
 import com.servidos.v1.identity.api.dto.UsuarioResponse;
-import com.servidos.v1.identity.application.CrearUsuarioUseCase;
+import com.servidos.v1.identity.application.usuario.CrearUsuarioCommand;
+import com.servidos.v1.identity.application.usuario.CrearUsuarioUseCase;
 import com.servidos.v1.shared.exception.BusinessException;
 import com.servidos.v1.shared.security.TenantContext;
 import jakarta.validation.Valid;
@@ -30,7 +31,7 @@ public class UsuarioController {
             throw new BusinessException("Operación no disponible para sesiones de plataforma");
         }
         var creado = crearUsuarioUseCase.ejecutar(
-                new CrearUsuarioUseCase.Command(
+                new CrearUsuarioCommand(
                         request.nombre(), request.apellido(), request.email(),
                         request.password(), request.rolRestauranteId()),
                 restauranteId);

@@ -3,8 +3,11 @@ package com.servidos.v1.identity.api;
 import com.servidos.v1.identity.api.dto.LoginRequest;
 import com.servidos.v1.identity.api.dto.MeResponse;
 import com.servidos.v1.identity.api.dto.TokenResponse;
-import com.servidos.v1.identity.application.LoginUseCase;
-import com.servidos.v1.identity.application.RefreshTokenService;
+import com.servidos.v1.identity.application.auth.LoginCommand;
+import com.servidos.v1.identity.application.auth.LoginSession;
+import com.servidos.v1.identity.application.auth.LoginUseCase;
+import com.servidos.v1.identity.application.auth.RefreshTokenService;
+import com.servidos.v1.identity.application.auth.SesionRenovada;
 import com.servidos.v1.identity.infrastructure.UsuarioJpaRepository;
 import com.servidos.v1.identity.infrastructure.security.JwtService;
 import com.servidos.v1.shared.exception.BusinessException;
@@ -48,9 +51,9 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<TokenResponse> login(
             @Valid @RequestBody LoginRequest request, HttpServletRequest http) {
-        final LoginUseCase.Session session;
+        final LoginSession session;
         try {
-            session = loginUseCase.ejecutar(new LoginUseCase.Command(
+            session = loginUseCase.ejecutar(new LoginCommand(
                     request.email(), request.password(), http.getRemoteAddr()));
         } catch (BusinessException e) {
             throw new UnauthorizedException("Credenciales inválidas");
@@ -68,7 +71,7 @@ public class AuthController {
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new UnauthorizedException("Sesión inválida");
         }
-        final RefreshTokenService.SesionRenovada renovada;
+        final SesionRenovada renovada;
         try {
             renovada = refreshTokenService.rotate(refreshToken);
         } catch (BusinessException e) {

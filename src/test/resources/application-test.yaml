@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: ${TEST_DB_URL}
-    username: ${TEST_DB_USERNAME}
-    password: ${TEST_DB_PASSWORD}
+    url: ${TEST_DB_URL:jdbc:postgresql://localhost:5433/servidos_test}
+    username: ${TEST_DB_USERNAME:servidos_test}
+    password: ${TEST_DB_PASSWORD:servidos_test}
   jpa:
     show-sql: false
 
