@@ -32,7 +32,7 @@ jobs:
       - name: Verificar sin secretos reales
         run: |
           test ! -f .env || (echo ".env no debe subirse" && exit 1)
-          ! grep -R "BEGIN PRIVATE KEY\|AKIA[0-9A-Z]*\|xox[bap]-" --include="*.java" --include="*.yaml" --include="*.yml" src .github || (echo "posible secreto en código" && exit 1)
+          ! grep -R "BEGIN PRIVATE KEY\|AKIA[0-9A-Z]*\|xox[bap]-" --include="*.java" --include="*.yaml" --include="*.yml" --exclude=ci.yml src .github || (echo "posible secreto en código" && exit 1)
       - name: Build + tests
         env:
           TEST_DB_URL: jdbc:postgresql://localhost:5432/servidos_test
