@@ -39,4 +39,6 @@ jobs:
           TEST_DB_USERNAME: postgres
           TEST_DB_PASSWORD: postgres
           JWT_SECRET: c8nIu7aclv2BiCt2ybCAdO3yMHYc2U0A1hgu14vpeIW
-        run: ./mvnw -B clean verify
+        run: |
+          chmod +x ./mvnw
+          ./mvnw -B clean verify
