@@ -38,5 +38,5 @@ jobs:
           TEST_DB_URL: jdbc:postgresql://localhost:5432/servidos_test
           TEST_DB_USERNAME: postgres
           TEST_DB_PASSWORD: postgres
-          JWT_SECRET: ci-secreto-de-al-menos-32-caracteres-123456
+          JWT_SECRET: c8nIu7aclv2BiCt2ybCAdO3yMHYc2U0A1hgu14vpeIW
         run: ./mvnw -B clean verify
