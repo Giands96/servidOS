@@ -20,6 +20,8 @@ public class PagoMapper {
                 .estado(e.getEstado())
                 .fecha_pago(e.getFechaPago())
                 .referenciaExterna(e.getReferenciaExterna())
+                .reembolsoMotivo(e.getReembolsoMotivo())
+                .reembolsoUsuarioId(e.getReembolsoUsuarioId())
                 .created_at(e.getCreatedAt())
                 .updated_at(e.getUpdatedAt())
                 .build();
@@ -38,6 +40,8 @@ public class PagoMapper {
         e.setEstado(d.getEstado());
         e.setFechaPago(d.getFecha_pago());
         e.setReferenciaExterna(d.getReferenciaExterna());
+        e.setReembolsoMotivo(d.getReembolsoMotivo());
+        e.setReembolsoUsuarioId(d.getReembolsoUsuarioId());
         e.setCreatedAt(d.getCreated_at());
         e.setUpdatedAt(d.getUpdated_at());
         return e;
