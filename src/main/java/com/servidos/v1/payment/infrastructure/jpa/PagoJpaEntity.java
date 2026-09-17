@@ -53,6 +53,12 @@ public class PagoJpaEntity {
     @Column(name = "fecha_pago", nullable = false)
     private LocalDateTime fechaPago;
 
+    @Column(name = "reembolso_motivo", length = 500)
+    private String reembolsoMotivo;
+
+    @Column(name = "reembolso_usuario_id")
+    private Long reembolsoUsuarioId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

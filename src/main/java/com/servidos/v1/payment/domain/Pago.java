@@ -25,6 +25,8 @@ public class Pago {
     private EstadoPago estado;
     private LocalDateTime fecha_pago;
     private String referenciaExterna;
+    private String reembolsoMotivo;
+    private Long reembolsoUsuarioId;
     private LocalDateTime created_at;
     private LocalDateTime updated_at;
 
@@ -37,5 +39,14 @@ public class Pago {
         if (vuelto != null && vuelto.compareTo(BigDecimal.ZERO) < 0) throw new BusinessException("El vuelto no puede ser negativo");
         if (metodo_pago != MetodoPago.EFECTIVO && vuelto != null) throw new BusinessException("El vuelto solo aplica para efectivo");
         return Pago.builder().pedido_id(pedido_id).restaurante_id(restaurante_id).usuario_id(usuario_id).metodo_pago(metodo_pago).monto(monto).vuelto(vuelto).referenciaExterna(referenciaExterna).estado(EstadoPago.PAGADO).fecha_pago(LocalDateTime.now()).build();
+    }
+
+    public void reembolsar(String motivo, Long usuarioId) {
+        if (estado != EstadoPago.PAGADO) throw new BusinessException("Solo un pago PAGADO puede reembolsarse");
+        if (motivo == null || motivo.trim().isEmpty()) throw new BusinessException("El motivo del reembolso es obligatorio");
+        if (usuarioId == null) throw new BusinessException("Usuario no identificado");
+        this.estado = EstadoPago.REEMBOLSADO;
+        this.reembolsoMotivo = motivo.trim();
+        this.reembolsoUsuarioId = usuarioId;
     }
 }
