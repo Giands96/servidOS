@@ -1,0 +1,42 @@
+name: CI minima P0.4
+
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: servidos_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Verificar sin secretos reales
+        run: |
+          test ! -f .env || (echo ".env no debe subirse" && exit 1)
+          ! grep -R "BEGIN PRIVATE KEY\|AKIA[0-9A-Z]*\|xox[bap]-" --include="*.java" --include="*.yaml" --include="*.yml" src .github || (echo "posible secreto en código" && exit 1)
+      - name: Build + tests
+        env:
+          TEST_DB_URL: jdbc:postgresql://localhost:5432/servidos_test
+          TEST_DB_USERNAME: postgres
+          TEST_DB_PASSWORD: postgres
+          JWT_SECRET: ci-secreto-de-al-menos-32-caracteres-123456
+        run: ./mvnw -B clean verify

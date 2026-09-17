@@ -23,5 +23,7 @@ servidos:
 app:
   security:
     secure-cookie: true
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
 debug: false
 

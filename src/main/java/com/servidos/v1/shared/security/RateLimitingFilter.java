@@ -13,9 +13,7 @@ public class RateLimitingFilter implements Filter {
     private static final int MAX_REQUESTS_PER_WINDOW = 5;
     private static final long WINDOW_MILLIS = 60_000;
 
-    private record Ventana(int contador, long venceEn) {}
-
-    private final Map<String, Ventana> ventanas = new ConcurrentHashMap<>();
+    private final Map<String, RateLimitVentana> ventanas = new ConcurrentHashMap<>();
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
@@ -27,11 +25,11 @@ public class RateLimitingFilter implements Filter {
 
         // Primero se pregunta si la ventana sigue viva, recién después se cuenta.
         // compute() es atómico por clave: sin carreras entre hilos.
-        Ventana actual = ventanas.compute(clientIp, (ip, previa) -> {
+        RateLimitVentana actual = ventanas.compute(clientIp, (ip, previa) -> {
             if (previa == null || ahora >= previa.venceEn()) {
-                return new Ventana(1, ahora + WINDOW_MILLIS);
+                return new RateLimitVentana(1, ahora + WINDOW_MILLIS);
             }
-            return new Ventana(previa.contador() + 1, previa.venceEn());
+            return new RateLimitVentana(previa.contador() + 1, previa.venceEn());
         });
 
         // Limpieza oportunista: evita que el mapa crezca para siempre.
