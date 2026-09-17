@@ -35,7 +35,8 @@ jobs:
           ! grep -R "BEGIN PRIVATE KEY\|AKIA[0-9A-Z]*\|xox[bap]-" --include="*.java" --include="*.yaml" --include="*.yml" src .github || (echo "posible secreto en código" && exit 1)
       - name: Build + tests
         env:
-          DB_USERNAME: postgres
-          DB_PASSWORD: postgres
+          TEST_DB_URL: jdbc:postgresql://localhost:5432/servidos_test
+          TEST_DB_USERNAME: postgres
+          TEST_DB_PASSWORD: postgres
           JWT_SECRET: ci-secreto-de-al-menos-32-caracteres-123456
         run: ./mvnw -B clean verify
