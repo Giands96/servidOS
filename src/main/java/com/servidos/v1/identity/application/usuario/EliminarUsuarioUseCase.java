@@ -3,8 +3,10 @@ package com.servidos.v1.identity.application.usuario;
 import com.servidos.v1.identity.application.auth.RefreshTokenService;
 import com.servidos.v1.identity.domain.EstadoUsuario;
 import com.servidos.v1.identity.infrastructure.UsuarioJpaRepository;
+import com.servidos.v1.identity.infrastructure.RolRestauranteJpaRepository;
 import com.servidos.v1.identity.infrastructure.UsuarioRestauranteJpaRepository;
 import com.servidos.v1.shared.exception.BusinessException;
+import com.servidos.v1.shared.exception.ConflictException;
 import com.servidos.v1.shared.exception.ForbiddenException;
 import com.servidos.v1.shared.exception.UnauthorizedException;
 import com.servidos.v1.shared.security.CurrentUser;
@@ -18,6 +20,7 @@ public class EliminarUsuarioUseCase {
 
     private final UsuarioJpaRepository usuarioRepository;
     private final UsuarioRestauranteJpaRepository usuarioRestauranteRepository;
+    private final RolRestauranteJpaRepository rolRepository;
     private final RefreshTokenService refreshTokenService;
 
     @Transactional
@@ -55,6 +58,20 @@ public class EliminarUsuarioUseCase {
         }
         if (objetivo.getEstado() != EstadoUsuario.ACTIVO) {
             throw new BusinessException("El usuario ya fue eliminado");
+        }
+
+        // Anti-acéfalo: si el objetivo es ADMINISTRADOR y es el último activo
+        // del tenant, frenar. Sin esto el restaurante quedaría sin nadie capaz
+        // de crear usuarios o asignar roles (solo ADMINISTRADOR puede).
+        var rolObjetivo = rolRepository.findById(objetivo.getRolRestauranteId())
+                .orElseThrow(() -> new BusinessException("El rol no existe"));
+        if ("ADMINISTRADOR".equalsIgnoreCase(rolObjetivo.getNombre())) {
+            long adminsActivos = usuarioRestauranteRepository
+                    .countByRestauranteIdAndRolRestauranteIdAndEstado(
+                            restauranteId, objetivo.getRolRestauranteId(), EstadoUsuario.ACTIVO);
+            if (adminsActivos <= 1) {
+                throw new ConflictException("No puedes eliminar al último ADMINISTRADOR del restaurante");
+            }
         }
 
         var usuarioEntity = usuarioRepository.findById(cmd.usuarioId())
