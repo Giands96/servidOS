@@ -39,7 +39,7 @@ API Rest multi-tenant para un sistema de gestión de restaurantes, aplicando una
 
 - **migrations/** ya aplicadas (crear una nueva, nunca editar una vieja)
 - Modulo **legacy-billing/** (congelado, sin refactors)
-- Nunca commitear **.env** ni secrets
+- Nunca leer ni commitear **.env** ni secrets
 
 # 7. Git / PR
 - Commits: Conventional Commits (feat:, fix:, chore:)
