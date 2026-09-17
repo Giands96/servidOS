@@ -4,11 +4,14 @@ import com.servidos.v1.identity.application.usuario.EliminarUsuarioCommand;
 import com.servidos.v1.identity.application.usuario.EliminarUsuarioUseCase;
 import com.servidos.v1.identity.application.auth.RefreshTokenService;
 import com.servidos.v1.identity.domain.EstadoUsuario;
+import com.servidos.v1.identity.infrastructure.RolRestauranteJpaEntity;
+import com.servidos.v1.identity.infrastructure.RolRestauranteJpaRepository;
 import com.servidos.v1.identity.infrastructure.UsuarioJpaEntity;
 import com.servidos.v1.identity.infrastructure.UsuarioJpaRepository;
 import com.servidos.v1.identity.infrastructure.UsuarioRestauranteJpaEntity;
 import com.servidos.v1.identity.infrastructure.UsuarioRestauranteJpaRepository;
 import com.servidos.v1.shared.exception.BusinessException;
+import com.servidos.v1.shared.exception.ConflictException;
 import com.servidos.v1.shared.exception.ForbiddenException;
 import com.servidos.v1.shared.exception.UnauthorizedException;
 import com.servidos.v1.shared.security.CurrentUser;
@@ -29,13 +32,14 @@ class EliminarUsuarioTest {
 
     @Mock UsuarioJpaRepository usuarioRepository;
     @Mock UsuarioRestauranteJpaRepository usuarioRestauranteRepository;
+    @Mock RolRestauranteJpaRepository rolRepository;
     @Mock RefreshTokenService refreshTokenService;
 
     EliminarUsuarioUseCase useCase;
 
     @BeforeEach
     void setUp() {
-        useCase = new EliminarUsuarioUseCase(usuarioRepository, usuarioRestauranteRepository, refreshTokenService);
+        useCase = new EliminarUsuarioUseCase(usuarioRepository, usuarioRestauranteRepository, rolRepository, refreshTokenService);
         CurrentUser.setCurrentUser(1L);
         CurrentUser.setRole("ADMINISTRADOR");
     }
@@ -64,6 +68,14 @@ class EliminarUsuarioTest {
         u.setEmail("cocina@demo.pe");
         u.setEstado(estado);
         return u;
+    }
+
+    private static RolRestauranteJpaEntity rol(Long id, String nombre) {
+        var r = new RolRestauranteJpaEntity();
+        r.setRolRestauranteId(id);
+        r.setNombre(nombre);
+        r.setEstado("ACTIVO");
+        return r;
     }
 
     @Test
@@ -165,6 +177,7 @@ class EliminarUsuarioTest {
         when(usuarioRestauranteRepository.findById(1L))
                 .thenReturn(Optional.of(membresia(1L, 100L, EstadoUsuario.ACTIVO)));
         when(usuarioRestauranteRepository.findById(2L)).thenReturn(Optional.of(objetivoMembresia));
+        when(rolRepository.findById(10L)).thenReturn(Optional.of(rol(10L, "RECEPCION")));
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(objetivoUsuario));
 
         useCase.ejecutar(new EliminarUsuarioCommand(2L), 100L);
@@ -173,6 +186,43 @@ class EliminarUsuarioTest {
         assertEquals(EstadoUsuario.DESHABILITADO, objetivoUsuario.getEstado());
         verify(usuarioRestauranteRepository).save(objetivoMembresia);
         verify(usuarioRepository).save(objetivoUsuario);
+        verify(refreshTokenService).revokeAll(2L);
+    }
+
+    @Test
+    void eliminarUltimoAdministradorEs409() {
+        var objetivoMembresia = membresia(2L, 100L, EstadoUsuario.ACTIVO);
+        when(usuarioRestauranteRepository.findById(1L))
+                .thenReturn(Optional.of(membresia(1L, 100L, EstadoUsuario.ACTIVO)));
+        when(usuarioRestauranteRepository.findById(2L)).thenReturn(Optional.of(objetivoMembresia));
+        when(rolRepository.findById(10L)).thenReturn(Optional.of(rol(10L, "ADMINISTRADOR")));
+        when(usuarioRestauranteRepository.countByRestauranteIdAndRolRestauranteIdAndEstado(
+                100L, 10L, EstadoUsuario.ACTIVO)).thenReturn(1L);
+
+        var ex = assertThrows(ConflictException.class, () ->
+                useCase.ejecutar(new EliminarUsuarioCommand(2L), 100L));
+        assertEquals("No puedes eliminar al último ADMINISTRADOR del restaurante", ex.getMessage());
+        verify(usuarioRestauranteRepository, never()).save(any());
+        verify(usuarioRepository, never()).save(any());
+        verifyNoInteractions(refreshTokenService);
+    }
+
+    @Test
+    void eliminarAdministradorConParFunciona() {
+        var objetivoMembresia = membresia(2L, 100L, EstadoUsuario.ACTIVO);
+        var objetivoUsuario = usuario(2L, EstadoUsuario.ACTIVO);
+        when(usuarioRestauranteRepository.findById(1L))
+                .thenReturn(Optional.of(membresia(1L, 100L, EstadoUsuario.ACTIVO)));
+        when(usuarioRestauranteRepository.findById(2L)).thenReturn(Optional.of(objetivoMembresia));
+        when(rolRepository.findById(10L)).thenReturn(Optional.of(rol(10L, "ADMINISTRADOR")));
+        when(usuarioRestauranteRepository.countByRestauranteIdAndRolRestauranteIdAndEstado(
+                100L, 10L, EstadoUsuario.ACTIVO)).thenReturn(2L);
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(objetivoUsuario));
+
+        useCase.ejecutar(new EliminarUsuarioCommand(2L), 100L);
+
+        assertEquals(EstadoUsuario.DESHABILITADO, objetivoMembresia.getEstado());
+        verify(usuarioRestauranteRepository).save(objetivoMembresia);
         verify(refreshTokenService).revokeAll(2L);
     }
 }
