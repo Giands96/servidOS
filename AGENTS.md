@@ -52,10 +52,11 @@ API Rest multi-tenant para un sistema de gestión de restaurantes, aplicando una
 - Verificar que el proyecto esté en buen estado antes de empezar
 - Valida archivos rotos o incompletos
 - Si algo falla para, no empieces a trabajar si el sistema está roto.
+- Crear plan para la funcionalidad a implementar, definir los pasos y el resultado esperado.
 
 # 9 Después de escribir código:
 
 - Explicar como crear un test para la funcionalidad implementada
 - Explicar beneficios y trade-off (si es que hay) del código implementado.
 - Mencionar los siguientes estados | pendientes a realizar
-- En la carpeta docs crear carpeta /progress y ahi guardarás el progreso de lo que se está haciendo. Resultado de cada paso, decisiones, archivos que tocaste. 
+- En la carpeta docs crear en la carpeta /progress y ahi guardarás el progreso de lo que se está haciendo. Resultado de cada paso, porqué se tomaron ciertas decisiones, archivos que tocaste. 
