@@ -1,11 +1,14 @@
 package com.servidos.v1.ordering.application.pedido;
 
+import com.servidos.v1.ordering.application.PedidoPagoPort;
 import com.servidos.v1.ordering.domain.EstadoPedido;
 import com.servidos.v1.ordering.domain.Pedido;
 import com.servidos.v1.ordering.domain.TipoPedido;
+import com.servidos.v1.ordering.domain.event.PedidoCanceladoEvent;
 import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaEntity;
 import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaRepository;
 import com.servidos.v1.ordering.infrastructure.mapper.PedidoMapper;
+import com.servidos.v1.shared.event.EventPublisher;
 import com.servidos.v1.shared.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class CambiarEstadoPedidoUseCase {
     private final PedidoJpaRepository pedidoRepository;
     private final PedidoMapper pedidoMapper;
+    private final PedidoPagoPort pagoPort;
+    private final EventPublisher eventPublisher;
 
     @Transactional
     public Pedido ejecutar(Long pedidoId, Long restauranteId, EstadoPedido nuevoEstado) {
@@ -32,13 +37,21 @@ public class CambiarEstadoPedidoUseCase {
                 .orElseThrow(() -> new BusinessException("Pedido no encontrado"));
         validarTransicion(pedido, nuevoEstado);
         pedido.setEstado(nuevoEstado);
-        return pedidoMapper.toDomain(pedidoRepository.save(pedido));
+        PedidoJpaEntity guardado = pedidoRepository.save(pedido);
+        if (nuevoEstado == EstadoPedido.CANCELADO) {
+            eventPublisher.publish(new PedidoCanceladoEvent(pedidoId, restauranteId));
+        }
+        return pedidoMapper.toDomain(guardado);
     }
 
     private void validarTransicion(PedidoJpaEntity pedido, EstadoPedido nuevo) {
         EstadoPedido actual = pedido.getEstado();
         if (actual == nuevo) {
             throw new BusinessException("El pedido ya está en estado " + nuevo);
+        }
+        if (nuevo == EstadoPedido.CANCELADO
+                && pagoPort.estaPagado(pedido.getPedidoId(), pedido.getRestauranteId())) {
+            throw new BusinessException("El pedido pagado no puede cancelarse");
         }
         boolean delivery = pedido.getTipoPedido() == TipoPedido.DELIVERY;
         switch (actual) {

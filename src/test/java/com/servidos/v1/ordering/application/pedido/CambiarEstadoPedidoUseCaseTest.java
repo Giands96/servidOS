@@ -1,14 +1,18 @@
 package com.servidos.v1.ordering.application.pedido;
 
+import com.servidos.v1.ordering.application.PedidoPagoPort;
 import com.servidos.v1.ordering.domain.EstadoPedido;
 import com.servidos.v1.ordering.domain.TipoPedido;
+import com.servidos.v1.ordering.domain.event.PedidoCanceladoEvent;
 import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaEntity;
 import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaRepository;
 import com.servidos.v1.ordering.infrastructure.mapper.PedidoMapper;
+import com.servidos.v1.shared.event.EventPublisher;
 import com.servidos.v1.shared.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -25,11 +29,17 @@ class CambiarEstadoPedidoUseCaseTest {
     @Mock
     PedidoJpaRepository pedidoRepository;
 
+    @Mock
+    PedidoPagoPort pagoPort;
+
+    @Mock
+    EventPublisher eventPublisher;
+
     CambiarEstadoPedidoUseCase useCase;
 
     @BeforeEach
     void setUp() {
-        useCase = new CambiarEstadoPedidoUseCase(pedidoRepository, new PedidoMapper());
+        useCase = new CambiarEstadoPedidoUseCase(pedidoRepository, new PedidoMapper(), pagoPort, eventPublisher);
     }
 
     private PedidoJpaEntity pedido(EstadoPedido estado, TipoPedido tipo) {
@@ -113,5 +123,37 @@ class CambiarEstadoPedidoUseCaseTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> useCase.ejecutar(1L, 99L, EstadoPedido.EN_PREPARACION));
         assertEquals("Pedido no encontrado", ex.getMessage());
+    }
+
+    @Test
+    void noCancelaPedidoPagado() {
+        dadoPedido(pedido(EstadoPedido.PENDIENTE, TipoPedido.MESA));
+        when(pagoPort.estaPagado(1L, 10L)).thenReturn(true);
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> useCase.ejecutar(1L, 10L, EstadoPedido.CANCELADO));
+        assertTrue(ex.getMessage().contains("pagado"));
+    }
+
+    @Test
+    void pedidoPagadoPuedeAvanzarPeroNoCancelarse() {
+        dadoSave();
+        dadoPedido(pedido(EstadoPedido.PENDIENTE, TipoPedido.MESA));
+        assertEquals(EstadoPedido.EN_PREPARACION,
+                useCase.ejecutar(1L, 10L, EstadoPedido.EN_PREPARACION).getEstado());
+    }
+
+    @Test
+    void cancelarPublicaEvento() {
+        dadoSave();
+        dadoPedido(pedido(EstadoPedido.PENDIENTE, TipoPedido.MESA));
+        when(pagoPort.estaPagado(1L, 10L)).thenReturn(false);
+
+        assertEquals(EstadoPedido.CANCELADO,
+                useCase.ejecutar(1L, 10L, EstadoPedido.CANCELADO).getEstado());
+
+        var captor = ArgumentCaptor.forClass(PedidoCanceladoEvent.class);
+        verify(eventPublisher).publish(captor.capture());
+        assertEquals(1L, captor.getValue().getPedidoId());
+        assertEquals(10L, captor.getValue().getRestauranteId());
     }
 }
