@@ -30,10 +30,17 @@ public class CrearRestauranteUseCase {
         validar(cmd);
         Restaurante domain = Restaurante.crear(cmd.slug(), cmd.nombre(), cmd.direccion());
         var savedR = restauranteRepository.save(restauranteMapper.toEntity(domain));
-        Suscripcion s = Suscripcion.crear(savedR.getRestauranteId(), cmd.planId(), LocalDate.now(), LocalDate.now().plusDays(15));
+        int dias = Boolean.TRUE.equals(cmd.demo()) ? validarDemoDias(cmd.demoDias()) : 30;
+        Suscripcion s = Suscripcion.crear(savedR.getRestauranteId(), cmd.planId(), LocalDate.now(), LocalDate.now().plusDays(dias));
         suscripcionRepository.save(suscripcionMapper.toEntity(s));
         eventPublisher.publish(new RestauranteCreadoEvent(savedR.getRestauranteId(), savedR.getSlug()));
         return restauranteMapper.toDomain(savedR);
+    }
+
+    private int validarDemoDias(Integer demoDias) {
+        if (demoDias == null) throw new BusinessException("Los días de demo son obligatorios");
+        if (demoDias < 1 || demoDias > 30) throw new BusinessException("Los días de demo deben estar entre 1 y 30");
+        return demoDias;
     }
 
     private void validar(CrearRestauranteCommand cmd) {
