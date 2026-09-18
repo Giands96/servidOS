@@ -40,7 +40,7 @@ public class CambiarPlanUseCase {
         suscripcionRepository.save(actual);
 
         LocalDate fechaInicio = LocalDate.now();
-        LocalDate fechaFin = fechaInicio.plusDays(30);
+        LocalDate fechaFin = fechaInicio.plusDays(15);
         Suscripcion nueva = Suscripcion.crear(cmd.restauranteId(), cmd.nuevoPlanId(), fechaInicio, fechaFin);
         var saved = suscripcionRepository.save(suscripcionMapper.toEntity(nueva));
 

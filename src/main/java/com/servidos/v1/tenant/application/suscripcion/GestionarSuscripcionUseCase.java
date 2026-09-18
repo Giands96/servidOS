@@ -35,7 +35,7 @@ public class GestionarSuscripcionUseCase {
             }
         }
 
-        Suscripcion s = Suscripcion.crear(restauranteId, planId, LocalDate.now(), LocalDate.now().plusDays(30));
+        Suscripcion s = Suscripcion.crear(restauranteId, planId, LocalDate.now(), LocalDate.now().plusDays(15));
         var saved = suscripcionRepository.save(suscripcionMapper.toEntity(s));
         return suscripcionMapper.toDomain(saved);
     }

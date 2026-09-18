@@ -30,7 +30,7 @@ public class CrearRestauranteUseCase {
         validar(cmd);
         Restaurante domain = Restaurante.crear(cmd.slug(), cmd.nombre(), cmd.direccion());
         var savedR = restauranteRepository.save(restauranteMapper.toEntity(domain));
-        Suscripcion s = Suscripcion.crear(savedR.getRestauranteId(), cmd.planId(), LocalDate.now(), LocalDate.now().plusDays(30));
+        Suscripcion s = Suscripcion.crear(savedR.getRestauranteId(), cmd.planId(), LocalDate.now(), LocalDate.now().plusDays(15));
         suscripcionRepository.save(suscripcionMapper.toEntity(s));
         eventPublisher.publish(new RestauranteCreadoEvent(savedR.getRestauranteId(), savedR.getSlug()));
         return restauranteMapper.toDomain(savedR);
