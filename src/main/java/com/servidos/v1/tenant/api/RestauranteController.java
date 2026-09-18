@@ -2,14 +2,17 @@ package com.servidos.v1.tenant.api;
 
 import com.servidos.v1.shared.exception.ErrorResponse;
 import com.servidos.v1.shared.security.TenantContext;
+import com.servidos.v1.tenant.api.dto.CambiarPlanRequest;
 import com.servidos.v1.tenant.api.dto.CrearRestauranteRequest;
 import com.servidos.v1.tenant.api.dto.RestauranteResponse;
 import com.servidos.v1.tenant.api.dto.SuscripcionResponse;
 import com.servidos.v1.tenant.application.restaurante.CrearRestauranteCommand;
 import com.servidos.v1.tenant.application.restaurante.CrearRestauranteUseCase;
 import com.servidos.v1.tenant.application.restaurante.ObtenerRestauranteUseCase;
+import com.servidos.v1.tenant.application.suscripcion.CambiarPlanCommand;
 import com.servidos.v1.tenant.application.suscripcion.CambiarPlanUseCase;
 import com.servidos.v1.tenant.application.suscripcion.GestionarSuscripcionUseCase;
+import com.servidos.v1.tenant.application.suscripcion.RenovarSuscripcionCommand;
 import com.servidos.v1.tenant.application.suscripcion.RenovarSuscripcionUseCase;
 import com.servidos.v1.tenant.domain.Restaurante;
 import com.servidos.v1.tenant.domain.Suscripcion;
@@ -24,6 +27,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -91,6 +95,36 @@ public class RestauranteController {
     @ApiResponse(responseCode = "200", description = "Suscripción")
     public ResponseEntity<SuscripcionResponse> suscripcionPorId(@PathVariable Long id) {
         return ResponseEntity.ok(toResponse(obtenerRestauranteUseCase.obtenerSuscripcion(id)));
+    }
+
+    @PatchMapping("/actual/plan")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','SUPERADMIN')")
+    @Operation(summary = "Cambiar el plan del restaurante actual",
+            description = "Cierra la suscripción ACTIVA y abre una nueva de 30 días con el plan elegido.")
+    @ApiResponse(responseCode = "200", description = "Nueva suscripción")
+    public ResponseEntity<SuscripcionResponse> cambiarPlan(@Valid @RequestBody CambiarPlanRequest request) {
+        var nueva = cambiarPlanUseCase.ejecutar(new CambiarPlanCommand(
+                TenantContext.getRestauranteId(), request.nuevoPlanId()));
+        return ResponseEntity.ok(toResponse(nueva));
+    }
+
+    @PostMapping("/actual/suscripcion/renovar")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','SUPERADMIN')")
+    @Operation(summary = "Renovar la suscripción un mes calendario")
+    @ApiResponse(responseCode = "200", description = "Suscripción renovada")
+    public ResponseEntity<SuscripcionResponse> renovar() {
+        var nueva = renovarSuscripcionUseCase.ejecutar(
+                new RenovarSuscripcionCommand(TenantContext.getRestauranteId()));
+        return ResponseEntity.ok(toResponse(nueva));
+    }
+
+    @PostMapping("/actual/suscripcion/cancelar")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','SUPERADMIN')")
+    @Operation(summary = "Cancelar la suscripción actual")
+    @ApiResponse(responseCode = "200", description = "Suscripción cancelada")
+    public ResponseEntity<Void> cancelar() {
+        gestionarSuscripcionUseCase.cancelar(TenantContext.getRestauranteId());
+        return ResponseEntity.ok().build();
     }
 
     private RestauranteResponse toResponse(Restaurante r) {

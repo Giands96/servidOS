@@ -1,6 +1,7 @@
 package com.servidos.v1.tenant.api;
 
 import com.servidos.v1.shared.security.TenantContext;
+import com.servidos.v1.tenant.api.dto.CambiarPlanRequest;
 import com.servidos.v1.tenant.api.dto.CrearRestauranteRequest;
 import com.servidos.v1.tenant.application.restaurante.CrearRestauranteUseCase;
 import com.servidos.v1.tenant.application.restaurante.ObtenerRestauranteUseCase;
@@ -63,5 +64,37 @@ class RestauranteControllerTest {
         var resp = controller.actual();
         assertEquals(HttpStatus.OK, resp.getStatusCode());
         assertEquals(100L, resp.getBody().restauranteId());
+    }
+
+    @Test
+    void cambiarPlanDelegaYDa200() {
+        when(cambiarPlanUseCase.ejecutar(any())).thenReturn(
+                com.servidos.v1.tenant.domain.Suscripcion.builder().suscripcion_id(2L)
+                        .restaurante_id(100L).plan_id(4L)
+                        .estado(com.servidos.v1.tenant.domain.Suscripcion.EstadoSuscripcion.ACTIVA)
+                        .fecha_inicio(java.time.LocalDate.now())
+                        .fecha_fin(java.time.LocalDate.now().plusDays(30)).build());
+        var resp = controller.cambiarPlan(new CambiarPlanRequest(4L));
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        assertEquals(4L, resp.getBody().planId());
+    }
+
+    @Test
+    void renovarDelegaYDa200() {
+        when(renovarSuscripcionUseCase.ejecutar(any())).thenReturn(
+                com.servidos.v1.tenant.domain.Suscripcion.builder().suscripcion_id(3L)
+                        .restaurante_id(100L).plan_id(4L)
+                        .estado(com.servidos.v1.tenant.domain.Suscripcion.EstadoSuscripcion.ACTIVA)
+                        .fecha_inicio(java.time.LocalDate.now())
+                        .fecha_fin(java.time.LocalDate.now().plusMonths(1)).build());
+        var resp = controller.renovar();
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+    }
+
+    @Test
+    void cancelarDa200() {
+        var resp = controller.cancelar();
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        org.mockito.Mockito.verify(gestionarSuscripcionUseCase).cancelar(eq(100L));
     }
 }
