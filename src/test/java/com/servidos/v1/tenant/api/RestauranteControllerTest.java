@@ -74,7 +74,7 @@ class RestauranteControllerTest {
                         .estado(com.servidos.v1.tenant.domain.Suscripcion.EstadoSuscripcion.ACTIVA)
                         .fecha_inicio(java.time.LocalDate.now())
                         .fecha_fin(java.time.LocalDate.now().plusDays(30)).build());
-        var resp = controller.cambiarPlan(new CambiarPlanRequest(4L));
+        var resp = controller.cambiarPlan(new CambiarPlanRequest(4L, true, "secreto"));
         assertEquals(HttpStatus.OK, resp.getStatusCode());
         assertEquals(4L, resp.getBody().planId());
     }

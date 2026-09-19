@@ -100,11 +100,12 @@ public class RestauranteController {
     @PatchMapping("/actual/plan")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','SUPERADMIN')")
     @Operation(summary = "Cambiar el plan del restaurante actual",
-            description = "Cierra la suscripción ACTIVA y abre una nueva de 30 días con el plan elegido.")
+            description = "Cierra la suscripción ACTIVA y abre una nueva de 30 días con el plan elegido. Requiere confirmación explícita y la contraseña del usuario en sesión.")
     @ApiResponse(responseCode = "200", description = "Nueva suscripción")
     public ResponseEntity<SuscripcionResponse> cambiarPlan(@Valid @RequestBody CambiarPlanRequest request) {
         var nueva = cambiarPlanUseCase.ejecutar(new CambiarPlanCommand(
-                TenantContext.getRestauranteId(), request.nuevoPlanId()));
+                TenantContext.getRestauranteId(), request.nuevoPlanId(),
+                request.confirmado(), request.password()));
         return ResponseEntity.ok(toResponse(nueva));
     }
 
