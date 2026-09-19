@@ -1,5 +1,12 @@
 # AGENTS.md - ServidOS
 
+## 0. Flujo por defecto - ODD v3 (Organic Driven Development)
+- La sobreingeniería tiene que estar justificada.
+- Si el pedido es simple, se hace de una.
+- Si hay incertidumbre, investigar y preguntar antes de tocar nada.
+- Si es grande, armar documento de feature y trabajar por tareas, con criterios de aceptación y evidencia de que funciona.
+- El proceso escala con el pedido, no al revés.
+
 ## 1. Proposito y arquitectura
 API Rest multi-tenant para un sistema de gestión de restaurantes, aplicando una Arquitectura DDD/Clean Architecture: domain -> application -> infrastructure. Backend Spring Boot, Angular consumiendo la API.
 

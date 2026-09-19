@@ -35,8 +35,8 @@ public class GestionarSuscripcionUseCase {
             }
         }
 
-        Suscripcion s = Suscripcion.crear(restauranteId, planId, LocalDate.now(), LocalDate.now().plusDays(30));
-        var saved = suscripcionRepository.save(suscripcionMapper.toEntity(s));
+        Suscripcion suscripcion = Suscripcion.crear(restauranteId, planId, LocalDate.now(), LocalDate.now().plusDays(30));
+        var saved = suscripcionRepository.save(suscripcionMapper.toEntity(suscripcion));
         return suscripcionMapper.toDomain(saved);
     }
 
@@ -51,26 +51,4 @@ public class GestionarSuscripcionUseCase {
         suscripcionRepository.save(entity);
     }
 
-    @Transactional
-    public Suscripcion renovar(Long restauranteId, Integer duracionDias) {
-        if (restauranteId == null) throw new BusinessException("El restaurante es obligatorio");
-        if (duracionDias == null || duracionDias <= 0) throw new BusinessException("La duración es obligatoria");
-        var opt = suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDesc(restauranteId);
-        if (opt.isEmpty()) throw new BusinessException("No se encontró suscripción para el restaurante");
-        var actual = opt.get();
-        if (actual.getEstado() != EstadoSuscripcion.ACTIVA) throw new BusinessException("La suscripción no está activa");
-
-        LocalDate today = LocalDate.now();
-        LocalDate fechaInicio;
-        if (actual.getFechaFin() != null && !actual.getFechaFin().isBefore(today)) {
-            fechaInicio = actual.getFechaFin().plusDays(1);
-        } else {
-            fechaInicio = today;
-        }
-        LocalDate fechaFin = fechaInicio.plusDays(duracionDias);
-
-        Suscripcion nueva = Suscripcion.crear(restauranteId, actual.getPlanId(), fechaInicio, fechaFin);
-        var saved = suscripcionRepository.save(suscripcionMapper.toEntity(nueva));
-        return suscripcionMapper.toDomain(saved);
-    }
 }
