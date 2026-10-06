@@ -159,24 +159,26 @@ public class RestauranteController {
         return ResponseEntity.ok(toResponse(nueva));
     }
 
-    @PostMapping("/actual/suscripcion/renovar")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','SUPERADMIN')")
-    @Operation(summary = "Renovar la suscripción un mes calendario",
-            description = "Exige la contraseña del usuario en sesión: renovar crea una obligación "
-                    + "de pago nueva y no puede ser un clic casual que un restaurante vencido use "
-                    + "para auto-devolverse el acceso.")
+    @PostMapping("/{id}/suscripcion/renovar")
+    @PreAuthorize("hasRole('SUPERADMIN')")
+    @Operation(summary = "Renovar o asignar la suscripción de un restaurante (plataforma)",
+            description = "La plataforma registra un período pagado fuera del sistema. Sin suscripción "
+                    + "previa crea la primera (planId obligatorio). Si la actual sigue vigente, la nueva "
+                    + "queda programada desde el día siguiente a su fin. Un restaurante INACTIVO queda ACTIVO.")
     @ApiResponse(responseCode = "200", description = "Suscripción renovada")
-    public ResponseEntity<SuscripcionResponse> renovar(@Valid @RequestBody RenovarSuscripcionRequest request) {
-        var nueva = renovarSuscripcionUseCase.ejecutar(
-                new RenovarSuscripcionCommand(TenantContext.getRestauranteId(), request.password()));
+    public ResponseEntity<SuscripcionResponse> renovar(@PathVariable Long id,
+                                                       @RequestBody(required = false) RenovarSuscripcionRequest request) {
+        Long planId = request == null ? null : request.planId();
+        var nueva = renovarSuscripcionUseCase.ejecutar(new RenovarSuscripcionCommand(id, planId));
         return ResponseEntity.ok(toResponse(nueva));
     }
 
     @PostMapping("/actual/suscripcion/cancelar")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','SUPERADMIN')")
     @Operation(summary = "Cancelar la suscripción actual",
-            description = "Exige la contraseña del usuario en sesión: cancelar bloquea las escrituras "
-                    + "del restaurante con 402, igual de sensible que renovar o cambiar de plan.")
+            description = "Cancelar es no renovar: el restaurante opera hasta la fecha_fin de la "
+                    + "suscripción actual y las renovaciones programadas se cancelan. Exige la contraseña "
+                    + "del usuario en sesión.")
     @ApiResponse(responseCode = "200", description = "Suscripción cancelada")
     @ApiResponse(responseCode = "401", description = "Contraseña incorrecta")
     public ResponseEntity<Void> cancelar(@Valid @RequestBody CancelarSuscripcionRequest request) {

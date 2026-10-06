@@ -126,10 +126,20 @@ class RestauranteControllerTest {
     }
 
     @Test
-    void renovarDelegaYDa200() {
+    void renovarDePlataformaUsaElIdDelPathYElPlanDelBody() {
         when(renovarSuscripcionUseCase.ejecutar(any())).thenReturn(suscripcionConPlan(3L, 4L, "Estándar", 30));
-        var resp = controller.renovar(new RenovarSuscripcionRequest("secreto"));
+        var resp = controller.renovar(55L, new RenovarSuscripcionRequest(4L));
         assertEquals(HttpStatus.OK, resp.getStatusCode());
+        org.mockito.Mockito.verify(renovarSuscripcionUseCase).ejecutar(
+                new com.servidos.v1.tenant.application.suscripcion.RenovarSuscripcionCommand(55L, 4L));
+    }
+
+    @Test
+    void renovarSinBodyRenuevaElMismoPlan() {
+        when(renovarSuscripcionUseCase.ejecutar(any())).thenReturn(suscripcionConPlan(3L, 4L, "Estándar", 30));
+        controller.renovar(55L, null);
+        org.mockito.Mockito.verify(renovarSuscripcionUseCase).ejecutar(
+                new com.servidos.v1.tenant.application.suscripcion.RenovarSuscripcionCommand(55L, null));
     }
 
     @Test

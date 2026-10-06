@@ -41,16 +41,23 @@ public class CambiarPlanUseCase {
         var plan = planRepository.findByPlanIdAndEstado(cmd.nuevoPlanId(), Plan.EstadoPlan.ACTIVO.name())
                 .orElseThrow(() -> new BusinessException("El plan no existe o no está activo"));
 
-        var opt = suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(cmd.restauranteId());
-        if (opt.isEmpty()) throw new BusinessException("No se encontró suscripción para el restaurante");
-        var actual = opt.get();
+        LocalDate hoy = LocalDate.now();
+        var actual = suscripcionRepository
+                .findTopByRestauranteIdAndFechaInicioLessThanEqualOrderBySuscripcionIdDesc(cmd.restauranteId(), hoy)
+                .orElseThrow(() -> new BusinessException("No se encontró suscripción para el restaurante"));
         if (actual.getEstado() != EstadoSuscripcion.ACTIVA) throw new BusinessException("La suscripción no está activa");
 
+        // La nueva reemplaza a la actual y a cualquier renovación programada del plan viejo.
         Long viejoPlanId = actual.getPlanId();
         actual.setEstado(EstadoSuscripcion.CANCELADA);
         suscripcionRepository.save(actual);
+        for (var programada : suscripcionRepository
+                .findByRestauranteIdAndEstadoAndFechaInicioAfter(cmd.restauranteId(), EstadoSuscripcion.ACTIVA, hoy)) {
+            programada.setEstado(EstadoSuscripcion.CANCELADA);
+            suscripcionRepository.save(programada);
+        }
 
-        LocalDate fechaInicio = LocalDate.now();
+        LocalDate fechaInicio = hoy;
         LocalDate fechaFin = fechaInicio.plusDays(30);
         Suscripcion nueva = Suscripcion.crear(cmd.restauranteId(), plan.getPlanId(),
                 plan.getPrecioPlan(), Plan.MONEDA_PEN, fechaInicio, fechaFin);

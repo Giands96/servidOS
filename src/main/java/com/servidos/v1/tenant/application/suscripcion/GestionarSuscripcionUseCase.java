@@ -54,12 +54,21 @@ public class GestionarSuscripcionUseCase {
         if (restauranteId == null) throw new BusinessException("El restaurante es obligatorio");
         if (password == null || password.isEmpty()) throw new BusinessException("La contraseña es obligatoria");
         exigirPassword(password);
-        var opt = suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(restauranteId);
-        if (opt.isEmpty()) throw new BusinessException("No se encontró suscripción para el restaurante");
-        var entity = opt.get();
+        // Cancelar = no renovar: la actual queda CANCELADA pero el restaurante opera
+        // hasta su fecha_fin (SubscriptionFilter). Las renovaciones ya programadas
+        // también se cancelan, si no el acceso seguiría después de fecha_fin.
+        LocalDate hoy = LocalDate.now();
+        var entity = suscripcionRepository
+                .findTopByRestauranteIdAndFechaInicioLessThanEqualOrderBySuscripcionIdDesc(restauranteId, hoy)
+                .orElseThrow(() -> new BusinessException("No se encontró suscripción para el restaurante"));
         if (entity.getEstado() != EstadoSuscripcion.ACTIVA) throw new BusinessException("La suscripción no está activa");
         entity.setEstado(EstadoSuscripcion.CANCELADA);
         suscripcionRepository.save(entity);
+        for (var programada : suscripcionRepository
+                .findByRestauranteIdAndEstadoAndFechaInicioAfter(restauranteId, EstadoSuscripcion.ACTIVA, hoy)) {
+            programada.setEstado(EstadoSuscripcion.CANCELADA);
+            suscripcionRepository.save(programada);
+        }
     }
 
     private void exigirPassword(String password) {

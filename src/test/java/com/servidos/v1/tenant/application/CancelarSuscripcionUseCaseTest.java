@@ -22,6 +22,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -53,13 +54,34 @@ class CancelarSuscripcionUseCaseTest {
         dadoUsuario(true);
         var actual = new SuscripcionJpaEntity();
         actual.setEstado(EstadoSuscripcion.ACTIVA);
-        when(suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(7L))
+        when(suscripcionRepository.findTopByRestauranteIdAndFechaInicioLessThanEqualOrderBySuscripcionIdDesc(eq(7L), any()))
                 .thenReturn(Optional.of(actual));
 
         useCase.cancelar(7L, "secreto");
 
         assertEquals(EstadoSuscripcion.CANCELADA, actual.getEstado());
         verify(suscripcionRepository).save(actual);
+    }
+
+    @Test
+    void cancelaTambienLasRenovacionesProgramadas() {
+        dadoUsuario(true);
+        var actual = new SuscripcionJpaEntity();
+        actual.setSuscripcionId(1L);
+        actual.setEstado(EstadoSuscripcion.ACTIVA);
+        var programada = new SuscripcionJpaEntity();
+        programada.setSuscripcionId(2L);
+        programada.setEstado(EstadoSuscripcion.ACTIVA);
+        when(suscripcionRepository.findTopByRestauranteIdAndFechaInicioLessThanEqualOrderBySuscripcionIdDesc(eq(7L), any()))
+                .thenReturn(Optional.of(actual));
+        when(suscripcionRepository.findByRestauranteIdAndEstadoAndFechaInicioAfter(eq(7L), eq(EstadoSuscripcion.ACTIVA), any()))
+                .thenReturn(java.util.List.of(programada));
+
+        useCase.cancelar(7L, "secreto");
+
+        assertEquals(EstadoSuscripcion.CANCELADA, actual.getEstado());
+        assertEquals(EstadoSuscripcion.CANCELADA, programada.getEstado());
+        verify(suscripcionRepository).save(programada);
     }
 
     @Test

@@ -21,38 +21,46 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.UUID;
 
 /**
- * Palanca de acceso del tenant. Frena las escrituras con {@code 402} cuando el
- * restaurante no tiene acceso operativo, por dos motivos equivalentes desde el punto
- * de vista del cliente:
+ * Palanca de acceso del tenant. Con el restaurante <b>bloqueado</b> las escrituras
+ * responden {@code 402}, para que el frontend muestre el aviso de pago. Bloqueado es:
  * <ul>
- *   <li>la suscripción actual está {@code CANCELADA}, o</li>
- *   <li>el {@code restaurante.estado} es {@code INACTIVO} (la palanca que la plataforma
- *       usa para suspender: un cliente que no pagó).</li>
+ *   <li>{@code restaurante.estado = INACTIVO} (la plataforma lo suspendió), o</li>
+ *   <li>no tiene suscripción actual, o</li>
+ *   <li>la suscripción actual ya venció ({@code fecha_fin} pasada).</li>
  * </ul>
+ * Una suscripción {@code CANCELADA} no bloquea por sí misma: cancelar es "no renovar",
+ * así que el restaurante opera hasta su {@code fecha_fin}. La fecha de fin es el día
+ * inclusive: hoy todavía opera, mañana ya no.
  * <p>
- * Con esto el login sigue siendo válido y el token se emite: el restaurante conserva
- * acceso de <b>solo lectura</b> a sus datos, que es lo que necesita para ver qué tiene.
- * El frontend detecta la suspensión por {@code estado} en
- * {@code GET /api/v1/restaurantes/actual} y muestra el aviso de pago.
+ * Bloqueado = solo lectura. Pasan siempre: lecturas, auth, rutas fuera de {@code /api/}
+ * y sesiones de plataforma (sin tenant). Además, para no dejar pedidos colgados, con el
+ * restaurante bloqueado se pueden <b>cerrar los pedidos en curso</b>: avanzar o cancelar
+ * su estado, marcarlos listos, cobrarlos y reembolsarlos. Crear pedidos nuevos y
+ * cualquier otra escritura siguen bloqueados.
  * <p>
- * Pasan siempre: lecturas, auth, rutas fuera de {@code /api/}, sesiones de plataforma
- * (sin tenant) y el hatch de reactivación ({@code /renovar}).
- * <p>
- * <b>Las fechas sí bloquean</b>: una suscripción {@code ACTIVA} con
- * {@code fecha_fin} pasada frena las escrituras con 402. La fecha de fin es el día
- * inclusive: vence cuando ya pasó. Renovar (hatch) sigue pasando y arranca desde hoy,
- * así el que venció se recupera renovando.
+ * Renovar no es self-service: lo hace la plataforma ({@code POST /restaurantes/{id}/suscripcion/renovar}).
  */
 @Component
 @RequiredArgsConstructor
 public class SubscriptionFilter extends OncePerRequestFilter {
 
     private static final Set<String> METODOS_LECTURA = Set.of("GET", "HEAD", "OPTIONS");
-    private static final String RENOVAR_PATH = "/api/v1/restaurantes/actual/suscripcion/renovar";
+
+    /** Escrituras que cierran un pedido ya creado; pasan aunque el restaurante esté bloqueado. */
+    private static final List<Pattern> CIERRE_DE_PEDIDOS = List.of(
+            Pattern.compile("PATCH /api/v1/pedidos/\\d+/estado"),
+            Pattern.compile("POST /api/v1/pedidos/\\d+/confirmar"),
+            Pattern.compile("POST /api/v1/cocina/pedidos/\\d+/listo"),
+            Pattern.compile("POST /api/v1/pagos"),
+            Pattern.compile("POST /api/v1/pagos/\\d+/reembolso"));
+
+    private static final String CONTACTO = "contactá a la plataforma para regularizar tu suscripción";
 
     private final SuscripcionJpaRepository suscripcionRepository;
     private final RestauranteJpaRepository restauranteRepository;
@@ -71,34 +79,37 @@ public class SubscriptionFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
             return;
         }
-        if (restauranteRepository.existsByRestauranteIdAndEstado(restauranteId, EstadoRestaurante.INACTIVO)) {
-            responderPagoRequerido(request, response,
-                    "Restaurante suspendido: regularizá tu suscripción para seguir operando");
+        String motivo = motivoDeBloqueo(restauranteId);
+        if (motivo != null && !esCierreDePedido(request)) {
+            responderPagoRequerido(request, response, motivo);
             return;
-        }
-        var actual = suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(restauranteId);
-        if (actual.isPresent()) {
-            var s = actual.get();
-            if (s.getEstado() == EstadoSuscripcion.CANCELADA) {
-                responderPagoRequerido(request, response,
-                        "Suscripción cancelada: renová tu plan para seguir operando");
-                return;
-            }
-            if (s.getEstado() == EstadoSuscripcion.ACTIVA && suscripcionVencida(s)) {
-                responderPagoRequerido(request, response,
-                        "Tu plan venció el " + s.getFechaFin() + ": renová para seguir operando");
-                return;
-            }
         }
         filterChain.doFilter(request, response);
     }
 
-    /**
-     * La fecha de fin es el día inclusive: hoy todavía opera, mañana ya no.
-     * Sin fecha de fin no hay vencimiento posible.
-     */
-    private boolean suscripcionVencida(SuscripcionJpaEntity s) {
-        return s.getFechaFin() != null && s.getFechaFin().isBefore(LocalDate.now());
+    /** Devuelve el mensaje de bloqueo, o {@code null} si el restaurante opera normal. */
+    private String motivoDeBloqueo(Long restauranteId) {
+        if (restauranteRepository.existsByRestauranteIdAndEstado(restauranteId, EstadoRestaurante.INACTIVO)) {
+            return "Restaurante suspendido: " + CONTACTO;
+        }
+        LocalDate hoy = LocalDate.now();
+        var actual = suscripcionRepository
+                .findTopByRestauranteIdAndFechaInicioLessThanEqualOrderBySuscripcionIdDesc(restauranteId, hoy);
+        if (actual.isEmpty()) {
+            return "Restaurante sin suscripción: " + CONTACTO;
+        }
+        SuscripcionJpaEntity s = actual.get();
+        if (s.getFechaFin() != null && s.getFechaFin().isBefore(hoy)) {
+            return (s.getEstado() == EstadoSuscripcion.CANCELADA
+                    ? "Tu suscripción cancelada terminó el " : "Tu plan venció el ")
+                    + s.getFechaFin() + ": " + CONTACTO;
+        }
+        return null;
+    }
+
+    private boolean esCierreDePedido(HttpServletRequest request) {
+        String operacion = request.getMethod() + " " + request.getRequestURI();
+        return CIERRE_DE_PEDIDOS.stream().anyMatch(p -> p.matcher(operacion).matches());
     }
 
     private boolean dejaPasar(HttpServletRequest request) {
@@ -109,11 +120,7 @@ public class SubscriptionFilter extends OncePerRequestFilter {
         if (METODOS_LECTURA.contains(request.getMethod())) {
             return true;
         }
-        if (uri.startsWith("/api/v1/auth/")) {
-            return true;
-        }
-        // Un CANCELADA solo puede renovar: es su vía de reactivación.
-        return uri.equals(RENOVAR_PATH);
+        return uri.startsWith("/api/v1/auth/");
     }
 
     private void responderPagoRequerido(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,

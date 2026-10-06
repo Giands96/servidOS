@@ -21,6 +21,7 @@ import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -70,6 +71,11 @@ class SubscriptionFilterTest {
         return e;
     }
 
+    private void dadaActual(SuscripcionJpaEntity actual) {
+        when(suscripcionRepository.findTopByRestauranteIdAndFechaInicioLessThanEqualOrderBySuscripcionIdDesc(eq(7L), any()))
+                .thenReturn(Optional.ofNullable(actual));
+    }
+
     private void restauranteActivo() {
         when(restauranteRepository.existsByRestauranteIdAndEstado(7L, EstadoRestaurante.INACTIVO))
                 .thenReturn(false);
@@ -80,11 +86,25 @@ class SubscriptionFilterTest {
                 .thenReturn(true);
     }
 
+    /** Cancelar es "no renovar": dentro del período pagado el restaurante sigue operando. */
     @Test
-    void escrituraCanceladaDa402YNoSigue() throws Exception {
+    void canceladaDentroDelPeriodoPasa() throws Exception {
         restauranteActivo();
-        when(suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(7L))
-                .thenReturn(Optional.of(suscripcion(EstadoSuscripcion.CANCELADA)));
+        var cancelada = suscripcion(EstadoSuscripcion.CANCELADA);
+        cancelada.setFechaFin(java.time.LocalDate.now().plusDays(10));
+        dadaActual(cancelada);
+        var res = response();
+        filter.doFilter(request("POST", "/api/v1/pedidos"), res, chain);
+        verify(chain, times(1)).doFilter(any(), any());
+        verify(res, never()).setStatus(anyInt());
+    }
+
+    @Test
+    void canceladaTerminadaDa402YNoSigue() throws Exception {
+        restauranteActivo();
+        var cancelada = suscripcion(EstadoSuscripcion.CANCELADA);
+        cancelada.setFechaFin(java.time.LocalDate.now().minusDays(1));
+        dadaActual(cancelada);
         var res = response();
         filter.doFilter(request("POST", "/api/v1/pedidos"), res, chain);
         verify(res).setStatus(402);
@@ -94,8 +114,7 @@ class SubscriptionFilterTest {
     @Test
     void escrituraActivaPasa() throws Exception {
         restauranteActivo();
-        when(suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(7L))
-                .thenReturn(Optional.of(suscripcion(EstadoSuscripcion.ACTIVA)));
+        dadaActual(suscripcion(EstadoSuscripcion.ACTIVA));
         var res = response();
         filter.doFilter(request("POST", "/api/v1/pedidos"), res, chain);
         verify(chain, times(1)).doFilter(any(), any());
@@ -106,15 +125,6 @@ class SubscriptionFilterTest {
     void lecturaCanceladaPasaSinConsultarDB() throws Exception {
         var res = response();
         filter.doFilter(request("GET", "/api/v1/pedidos"), res, chain);
-        verify(chain, times(1)).doFilter(any(), any());
-        verifyNoInteractions(suscripcionRepository);
-        verifyNoInteractions(restauranteRepository);
-    }
-
-    @Test
-    void renovarEsHatchDeReactivacion() throws Exception {
-        var res = response();
-        filter.doFilter(request("POST", "/api/v1/restaurantes/actual/suscripcion/renovar"), res, chain);
         verify(chain, times(1)).doFilter(any(), any());
         verifyNoInteractions(suscripcionRepository);
         verifyNoInteractions(restauranteRepository);
@@ -139,14 +149,15 @@ class SubscriptionFilterTest {
         verifyNoInteractions(restauranteRepository);
     }
 
+    /** Sin suscripción actual el restaurante queda en solo lectura, igual que vencido. */
     @Test
-    void sinSuscripcionPasa() throws Exception {
+    void sinSuscripcionDa402() throws Exception {
         restauranteActivo();
-        when(suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(7L))
-                .thenReturn(Optional.empty());
+        dadaActual(null);
         var res = response();
         filter.doFilter(request("POST", "/api/v1/pedidos"), res, chain);
-        verify(chain, times(1)).doFilter(any(), any());
+        verify(res).setStatus(402);
+        verify(chain, never()).doFilter(any(), any());
     }
 
     // ---------------------------------------------------------------------
@@ -188,13 +199,42 @@ class SubscriptionFilterTest {
         verifyNoInteractions(suscripcionRepository);
     }
 
-    /** Renovar es la unica escritura que pasa aunque el restaurante este INACTIVO. */
+    /**
+     * Con el restaurante bloqueado no quedan pedidos colgados: se pueden avanzar,
+     * marcar listos, cobrar y reembolsar los que ya existían.
+     */
     @Test
-    void renovarPasaAunqueElRestauranteEsteInactivo() throws Exception {
-        var res = response();
-        filter.doFilter(request("POST", "/api/v1/restaurantes/actual/suscripcion/renovar"), res, chain);
-        verify(chain, times(1)).doFilter(any(), any());
-        verifyNoInteractions(restauranteRepository);
+    void cierreDePedidosEnCursoPasaConRestauranteBloqueado() throws Exception {
+        String[][] operaciones = {
+                {"PATCH", "/api/v1/pedidos/12/estado"},
+                {"POST", "/api/v1/pedidos/12/confirmar"},
+                {"POST", "/api/v1/cocina/pedidos/12/listo"},
+                {"POST", "/api/v1/pagos"},
+                {"POST", "/api/v1/pagos/3/reembolso"}};
+        for (var op : operaciones) {
+            restauranteInactivo();
+            var res = response();
+            filter.doFilter(request(op[0], op[1]), res, chain);
+            verify(res, never()).setStatus(anyInt());
+        }
+        verify(chain, times(operaciones.length)).doFilter(any(), any());
+    }
+
+    /** Lo que no es cerrar un pedido sigue bloqueado: crear pedidos, catálogo, usuarios. */
+    @Test
+    void otrasEscriturasSiguenBloqueadas() throws Exception {
+        String[][] operaciones = {
+                {"POST", "/api/v1/pedidos"},
+                {"POST", "/api/v1/productos"},
+                {"PATCH", "/api/v1/productos/5/estado"},
+                {"POST", "/api/v1/pagos/3/reembolso/extra"}};
+        for (var op : operaciones) {
+            restauranteInactivo();
+            var res = response();
+            filter.doFilter(request(op[0], op[1]), res, chain);
+            verify(res).setStatus(402);
+        }
+        verify(chain, never()).doFilter(any(), any());
     }
 
     /** Cortocircuita: si el restaurante ya esta INACTIVO no llega a tocar suscripcion. */
@@ -226,8 +266,7 @@ class SubscriptionFilterTest {
     @Test
     void escrituraConSuscripcionVencidaDa402() throws Exception {
         restauranteActivo();
-        when(suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(7L))
-                .thenReturn(Optional.of(suscripcionVencida()));
+        dadaActual(suscripcionVencida());
         var cuerpo = new StringWriter();
         var res = responseConCuerpo(cuerpo);
         filter.doFilter(request("POST", "/api/v1/pedidos"), res, chain);
@@ -247,8 +286,7 @@ class SubscriptionFilterTest {
         restauranteActivo();
         var e = suscripcion(EstadoSuscripcion.ACTIVA);
         e.setFechaFin(java.time.LocalDate.now());
-        when(suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(7L))
-                .thenReturn(Optional.of(e));
+        dadaActual(e);
         var res = response();
         filter.doFilter(request("POST", "/api/v1/pedidos"), res, chain);
         verify(chain, times(1)).doFilter(any(), any());

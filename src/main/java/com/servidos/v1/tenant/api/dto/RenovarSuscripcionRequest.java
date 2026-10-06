@@ -1,13 +1,9 @@
 package com.servidos.v1.tenant.api.dto;
 
-import jakarta.validation.constraints.NotBlank;
-
 /**
- * Renovación de la suscripción. Exige la contraseña del usuario en sesión porque
- * renovar crea una obligación de pago nueva: no puede ser un clic casual que un
- * restaurante vencido use para auto-devolverse el acceso sin haber pagado.
+ * Renovación hecha por la plataforma después de cobrar fuera del sistema.
  *
- * <p>No verifica el pago (el cobro se resuelve fuera del sistema); lo que garantiza
- * es que la renovación sea un acto deliberado y atribuible del ADMINISTRADOR.
+ * @param planId opcional. Obligatorio solo si el restaurante todavía no tiene ninguna
+ *               suscripción; si no viene, se renueva el plan de la última.
  */
-public record RenovarSuscripcionRequest(@NotBlank String password) {}
+public record RenovarSuscripcionRequest(Long planId) {}
