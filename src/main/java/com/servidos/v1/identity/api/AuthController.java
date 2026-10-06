@@ -9,8 +9,11 @@ import com.servidos.v1.identity.application.auth.LoginUseCase;
 import com.servidos.v1.identity.application.auth.RefreshTokenService;
 import com.servidos.v1.identity.application.auth.SesionRenovada;
 import com.servidos.v1.identity.infrastructure.UsuarioJpaRepository;
+import com.servidos.v1.identity.api.dto.ResumenSuscripcion;
 import com.servidos.v1.identity.infrastructure.security.JwtService;
 import com.servidos.v1.shared.exception.BusinessException;
+import com.servidos.v1.tenant.application.restaurante.ObtenerRestauranteUseCase;
+import com.servidos.v1.tenant.domain.EstadoRestaurante;
 import com.servidos.v1.shared.exception.ErrorResponse;
 import com.servidos.v1.shared.exception.UnauthorizedException;
 import com.servidos.v1.shared.security.CurrentUser;
@@ -39,6 +42,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -57,6 +62,7 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final JwtService jwtService;
     private final UsuarioJpaRepository usuarioRepository;
+    private final ObtenerRestauranteUseCase obtenerRestauranteUseCase;
 
     @PostMapping("/login")
     @Operation(summary = "Iniciar sesión",
@@ -143,12 +149,41 @@ public class AuthController {
         }
         var usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new UnauthorizedException("Sesión inválida"));
+        Long restauranteId = TenantContext.getRestauranteId();
+        EstadoRestaurante restauranteEstado = null;
+        ResumenSuscripcion resumen = null;
+        if (restauranteId != null) {
+            restauranteEstado = resolverEstadoRestaurante(restauranteId);
+            resumen = resolverResumenSuscripcion(restauranteId);
+        }
         return ResponseEntity.ok(new MeResponse(
                 usuario.getUsuarioId(),
                 usuario.getEmail(),
                 usuario.getNombre(),
-                TenantContext.getRestauranteId(),
-                CurrentUser.getRole()));
+                restauranteId,
+                CurrentUser.getRole(),
+                restauranteEstado,
+                resumen));
+    }
+
+    private EstadoRestaurante resolverEstadoRestaurante(Long restauranteId) {
+        try {
+            return obtenerRestauranteUseCase.obtener(restauranteId).getEstado();
+        } catch (BusinessException e) {
+            return null;
+        }
+    }
+
+    private ResumenSuscripcion resolverResumenSuscripcion(Long restauranteId) {
+        try {
+            var sc = obtenerRestauranteUseCase.obtenerSuscripcion(restauranteId);
+            var s = sc.suscripcion();
+            long dias = ChronoUnit.DAYS.between(LocalDate.now(), s.getFecha_fin());
+            return new ResumenSuscripcion(s.getPlan_id(), sc.nombrePlan(), s.getMonto(), s.getMoneda(),
+                    s.getEstado(), s.getFecha_fin(), dias, dias < 0);
+        } catch (BusinessException e) {
+            return null;
+        }
     }
 
     private void exigirCabeceraNoTrivial(String requestedWith) {
