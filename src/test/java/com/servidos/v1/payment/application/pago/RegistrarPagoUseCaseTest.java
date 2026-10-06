@@ -40,6 +40,13 @@ class RegistrarPagoUseCaseTest {
 
     @InjectMocks RegistrarPagoUseCase useCase;
 
+    @org.junit.jupiter.api.BeforeEach
+    void sinReembolsoPrevio() {
+        org.mockito.Mockito.lenient()
+                .when(pagoRepository.existsByPedidoIdAndRestauranteIdAndEstado(10L, 1L, EstadoPago.REEMBOLSADO))
+                .thenReturn(false);
+    }
+
     private PedidoJpaEntity pedido(EstadoPedido estado, String total) {
         var p = new PedidoJpaEntity();
         p.setPedidoId(10L);
@@ -82,6 +89,22 @@ class RegistrarPagoUseCaseTest {
                 useCase.ejecutar(new RegistrarPagoCommand(10L, MetodoPago.YAPE, null, null), 1L, 5L));
 
         assertEquals("Pedido ya pagado", ex.getMessage());
+        verify(pagoRepository, never()).saveAndFlush(any());
+    }
+
+    /** El reembolso es definitivo: no se vuelve a cobrar, y el mensaje lo dice. */
+    @Test
+    void pedidoReembolsadoNoSeVuelveACobrar() {
+        stubPedido(EstadoPedido.ENTREGADO);
+        when(pagoRepository.existsByPedidoIdAndRestauranteIdAndEstado(10L, 1L, EstadoPago.PAGADO))
+                .thenReturn(false);
+        when(pagoRepository.existsByPedidoIdAndRestauranteIdAndEstado(10L, 1L, EstadoPago.REEMBOLSADO))
+                .thenReturn(true);
+
+        var ex = assertThrows(BusinessException.class, () ->
+                useCase.ejecutar(new RegistrarPagoCommand(10L, MetodoPago.YAPE, null, null), 1L, 5L));
+
+        assertEquals("El pedido fue reembolsado, no se puede volver a cobrar", ex.getMessage());
         verify(pagoRepository, never()).saveAndFlush(any());
     }
 
