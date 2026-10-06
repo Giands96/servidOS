@@ -15,6 +15,7 @@ import com.servidos.v1.shared.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Service
@@ -32,9 +33,13 @@ public class CrearRestauranteUseCase {
         var plan = validar(cmd);
         Restaurante domain = Restaurante.crear(cmd.slug(), cmd.nombre(), cmd.direccion());
         var savedR = restauranteRepository.save(restauranteMapper.toEntity(domain));
-        int dias = Boolean.TRUE.equals(cmd.demo()) ? validarDemoDias(cmd.demoDias()) : 30;
+        boolean demo = Boolean.TRUE.equals(cmd.demo());
+        int dias = demo ? validarDemoDias(cmd.demoDias()) : 30;
+        // monto es lo cobrado: una demo es gratis. El período siguiente lo renueva la
+        // plataforma y ahí toma el precio de lista.
+        BigDecimal monto = demo ? BigDecimal.ZERO : plan.getPrecioPlan();
         Suscripcion s = Suscripcion.crear(savedR.getRestauranteId(), plan.getPlanId(),
-                plan.getPrecioPlan(), Plan.MONEDA_PEN, LocalDate.now(), LocalDate.now().plusDays(dias));
+                monto, Plan.MONEDA_PEN, LocalDate.now(), LocalDate.now().plusDays(dias));
         suscripcionRepository.save(suscripcionMapper.toEntity(s));
         eventPublisher.publish(new RestauranteCreadoEvent(savedR.getRestauranteId(), savedR.getSlug()));
         return restauranteMapper.toDomain(savedR);
