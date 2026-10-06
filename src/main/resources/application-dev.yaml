@@ -3,8 +3,23 @@ spring:
     import: "optional:file:${user.dir}/.env[.properties]"
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/servidos}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    username: servidos_test
+    password: servidos_test
+  flyway:
+    placeholders:
+      # Dev: el SUPERADMIN de plataforma se crea solo en BD nueva (V9).
+      # Override por env si querés apagarlo o cambiar las credenciales.
+      # Credencial dev: admin@local.test / Admin123!
+      adminPlataformaBootstrap: "${BOOTSTRAP_ADMIN_PLATAFORMA_ENABLED:true}"
+      adminPlataformaEmail: "${BOOTSTRAP_ADMIN_PLATAFORMA_EMAIL:admin@local.test}"
+      # BCrypt strength 10, generado con spring-security BCryptPasswordEncoder.
+      adminPlataformaPasswordHash: "${BOOTSTRAP_ADMIN_PLATAFORMA_HASH:$2a$10$1vrMAYtSsitZ.vvqzL/DkOsvLSuhg9eEXHGN8V0hyCVKyHQw9bpAi}"
 app:
   security:
     secure-cookie: false
+# Swagger solo vive en dev.
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true

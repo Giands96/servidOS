@@ -5,8 +5,25 @@ spring:
     password: ${DB_PASSWORD}
   jpa:
     show-sql: false
+  flyway:
+    placeholders:
+      # Prod: bootstrap APAGADO por defecto. Un SUPERADMIN sembrado con una password
+      # del repo es una backdoor en producción. Para el primer despliegue se enciende
+      # a mano con BOOTSTRAP_ADMIN_PLATAFORMA_ENABLED=true y un hash de tu elección;
+      # como la guarda es NOT EXISTS, si ya existe un SUPERADMIN no se crea nada.
+      adminPlataformaBootstrap: "${BOOTSTRAP_ADMIN_PLATAFORMA_ENABLED:false}"
+      adminPlataformaEmail: "${BOOTSTRAP_ADMIN_PLATAFORMA_EMAIL:sin-configurar@localhost.invalid}"
+      adminPlataformaPasswordHash: "${BOOTSTRAP_ADMIN_PLATAFORMA_HASH:sin-configurar}"
 
 debug: false
+
+# Explícito a propósito: aunque el default ya es false, en prod queda documentado
+# que Swagger no existe (los paths responden 404, springdoc no registra handlers).
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
 
 servidos:
   auth:
