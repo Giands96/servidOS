@@ -11,7 +11,6 @@ import java.util.Optional;
 @Repository
 public interface PedidoJpaRepository extends JpaRepository<PedidoJpaEntity, Long> {
     Optional<PedidoJpaEntity> findByPedidoIdAndRestauranteId(Long pedidoId, Long restauranteId);
-    List<PedidoJpaEntity> findByRestauranteId(Long restauranteId);
     List<PedidoJpaEntity> findByRestauranteIdAndEstado(Long restauranteId, EstadoPedido estado);
 
     /**

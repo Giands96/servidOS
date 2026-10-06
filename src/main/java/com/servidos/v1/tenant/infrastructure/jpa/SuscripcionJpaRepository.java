@@ -2,7 +2,6 @@ package com.servidos.v1.tenant.infrastructure.jpa;
 
 import com.servidos.v1.tenant.application.suscripcion.SuscripcionConPlan;
 import com.servidos.v1.tenant.domain.Suscripcion;
-import com.servidos.v1.tenant.domain.Suscripcion.EstadoSuscripcion;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -12,8 +11,6 @@ import java.util.Optional;
 @Repository
 public interface SuscripcionJpaRepository extends JpaRepository<SuscripcionJpaEntity, Long> {
     Optional<SuscripcionJpaEntity> findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(Long restauranteId);
-    List<SuscripcionJpaEntity> findByRestauranteId(Long restauranteId);
-    boolean existsByRestauranteIdAndEstado(Long restauranteId, EstadoSuscripcion estado);
 
     /**
      * Suscripción actual del restaurante con el nombre del plan, en una sola consulta.
