@@ -64,7 +64,7 @@ class PagoControllerTest {
 
         assertEquals(HttpStatus.CREATED, resp.getStatusCode());
         assertEquals(5L, resp.getBody().pagoId());
-        assertEquals(new BigDecimal("10.00"), resp.getBody().vuelto());
+        assertEquals(0, new BigDecimal("10.00").compareTo(resp.getBody().vuelto()));
         verify(registrarPagoUseCase).ejecutar(any(), eq(100L), eq(7L));
     }
 

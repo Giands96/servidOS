@@ -70,7 +70,7 @@ class CrearPedidoUseCaseTest {
 
         var pedido = useCase.ejecutar(comando(7L), 10L);
 
-        assertEquals(new BigDecimal("50.00"), pedido.getTotal());
+        assertEquals(0, new BigDecimal("50.00").compareTo(pedido.getTotal()));
     }
 
     @Test
