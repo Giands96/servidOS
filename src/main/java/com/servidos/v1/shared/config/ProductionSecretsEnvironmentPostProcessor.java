@@ -10,7 +10,6 @@ import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Profiles;
 import org.springframework.util.StringUtils;
 
-/** Checks deployment prerequisites before datasource initialization; JWT behavior belongs to P1. */
 public class ProductionSecretsEnvironmentPostProcessor implements EnvironmentPostProcessor, Ordered {
 
     @Override

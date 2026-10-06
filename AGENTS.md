@@ -66,4 +66,14 @@ API Rest multi-tenant para un sistema de gestión de restaurantes, aplicando una
 - Explicar como crear un test para la funcionalidad implementada
 - Explicar beneficios y trade-off (si es que hay) del código implementado.
 - Mencionar los siguientes estados | pendientes a realizar
-- En la carpeta docs crear en la carpeta /progress y ahi guardarás el progreso de lo que se está haciendo. Resultado de cada paso, porqué se tomaron ciertas decisiones, archivos que tocaste. 
+- En la carpeta docs crear en la carpeta /progress y ahi guardarás el progreso de lo que se está haciendo. Resultado de cada paso, porqué se tomaron ciertas decisiones, archivos que tocaste.
+
+## Agent skills
+
+### Issue tracker
+
+Issues en GitHub del repo Giands96/servidOS usando `gh`. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context (`PROJECT_CONTEXT.md` como contexto actual, `docs/adr/` cuando exista). See `docs/agents/domain.md`. 
