@@ -4,6 +4,7 @@ import com.servidos.v1.shared.exception.ErrorResponse;
 import com.servidos.v1.shared.security.TenantContext;
 import com.servidos.v1.tenant.api.dto.CambiarEstadoRestauranteRequest;
 import com.servidos.v1.tenant.api.dto.CambiarPlanRequest;
+import com.servidos.v1.tenant.api.dto.CancelarSuscripcionRequest;
 import com.servidos.v1.tenant.api.dto.CrearRestauranteRequest;
 import com.servidos.v1.tenant.api.dto.RenovarSuscripcionRequest;
 import com.servidos.v1.tenant.api.dto.RestauranteDashboardResponse;
@@ -173,10 +174,13 @@ public class RestauranteController {
 
     @PostMapping("/actual/suscripcion/cancelar")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','SUPERADMIN')")
-    @Operation(summary = "Cancelar la suscripción actual")
+    @Operation(summary = "Cancelar la suscripción actual",
+            description = "Exige la contraseña del usuario en sesión: cancelar bloquea las escrituras "
+                    + "del restaurante con 402, igual de sensible que renovar o cambiar de plan.")
     @ApiResponse(responseCode = "200", description = "Suscripción cancelada")
-    public ResponseEntity<Void> cancelar() {
-        gestionarSuscripcionUseCase.cancelar(TenantContext.getRestauranteId());
+    @ApiResponse(responseCode = "401", description = "Contraseña incorrecta")
+    public ResponseEntity<Void> cancelar(@Valid @RequestBody CancelarSuscripcionRequest request) {
+        gestionarSuscripcionUseCase.cancelar(TenantContext.getRestauranteId(), request.password());
         return ResponseEntity.ok().build();
     }
 

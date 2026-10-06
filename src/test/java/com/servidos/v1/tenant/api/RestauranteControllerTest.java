@@ -134,9 +134,9 @@ class RestauranteControllerTest {
 
     @Test
     void cancelarDa200() {
-        var resp = controller.cancelar();
+        var resp = controller.cancelar(new com.servidos.v1.tenant.api.dto.CancelarSuscripcionRequest("secreto"));
         assertEquals(HttpStatus.OK, resp.getStatusCode());
-        org.mockito.Mockito.verify(gestionarSuscripcionUseCase).cancelar(eq(100L));
+        org.mockito.Mockito.verify(gestionarSuscripcionUseCase).cancelar(eq(100L), eq("secreto"));
     }
 
     @Test
