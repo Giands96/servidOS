@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
@@ -101,5 +102,14 @@ class CrearUsuarioSeguridadTest {
         when(rolRepository.findById(10L)).thenReturn(Optional.of(rol));
 
         assertThrows(BusinessException.class, () -> useCase.ejecutar(cmdBase(), 100L));
+    }
+
+    @Test
+    void hashearContra() {
+        var encoder = new BCryptPasswordEncoder();
+        var password = "admin123";
+        var hash = encoder.encode(password);
+
+        System.out.println("Hash de prueba: " + hash);
     }
 }

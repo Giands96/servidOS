@@ -1,5 +1,6 @@
 package com.servidos.v1.identity.application.usuario;
 
+import com.servidos.v1.identity.domain.RolNombreRestaurante;
 import com.servidos.v1.identity.domain.Usuario;
 import com.servidos.v1.identity.domain.UsuarioRestaurante;
 import com.servidos.v1.identity.domain.event.UsuarioCreadoEvent;
@@ -112,8 +113,8 @@ public class CrearUsuarioUseCase {
         // Nadie otorga un rol igual o superior al suyo. Hoy solo ADMINISTRADOR crea
         // (ver @PreAuthorize en UsuarioController), así que le bloqueamos crear
         // otro ADMINISTRADOR; los roles operativos sí puede.
-        if ("ADMINISTRADOR".equalsIgnoreCase(rolActor)
-                && "ADMINISTRADOR".equalsIgnoreCase(nombreRolObjetivo)) {
+        if (RolNombreRestaurante.esAdministrador(rolActor)
+                && RolNombreRestaurante.esAdministrador(nombreRolObjetivo)) {
             throw new ForbiddenException("No puedes otorgar un rol igual o superior al tuyo");
         }
     }

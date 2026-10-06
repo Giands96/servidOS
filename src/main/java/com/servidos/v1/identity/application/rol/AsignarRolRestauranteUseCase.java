@@ -1,5 +1,6 @@
 package com.servidos.v1.identity.application.rol;
 
+import com.servidos.v1.identity.domain.RolNombreRestaurante;
 import com.servidos.v1.identity.infrastructure.RolRestauranteJpaRepository;
 import com.servidos.v1.identity.infrastructure.UsuarioRestauranteJpaRepository;
 import com.servidos.v1.shared.exception.BusinessException;
@@ -41,7 +42,7 @@ public class AsignarRolRestauranteUseCase {
                 || !restauranteId.equals(actorMembresia.get().getRestauranteId())) {
             throw new ForbiddenException("Operación cross-tenant rechazada");
         }
-        if (!"ADMINISTRADOR".equalsIgnoreCase(CurrentUser.getRole())) {
+        if (!RolNombreRestaurante.esAdministrador(CurrentUser.getRole())) {
             throw new ForbiddenException("Solo un ADMINISTRADOR puede reasignar roles");
         }
 
@@ -56,7 +57,10 @@ public class AsignarRolRestauranteUseCase {
         if (!"ACTIVO".equalsIgnoreCase(rolEntity.getEstado())) {
             throw new BusinessException("El rol no está activo");
         }
-        if ("ADMINISTRADOR".equalsIgnoreCase(rolEntity.getNombre())) {
+        if (!RolNombreRestaurante.esValido(rolEntity.getNombre())) {
+            throw new BusinessException("Rol no reconocido");
+        }
+        if (RolNombreRestaurante.esAdministrador(rolEntity.getNombre())) {
             throw new ForbiddenException("No puedes otorgar un rol igual o superior al tuyo");
         }
 

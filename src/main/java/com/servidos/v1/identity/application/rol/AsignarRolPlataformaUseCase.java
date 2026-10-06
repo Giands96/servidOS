@@ -1,5 +1,6 @@
 package com.servidos.v1.identity.application.rol;
 
+import com.servidos.v1.identity.domain.RolNombrePlataforma;
 import com.servidos.v1.identity.infrastructure.RolPlataformaJpaRepository;
 import com.servidos.v1.identity.infrastructure.UsuarioPlataformaJpaRepository;
 import com.servidos.v1.shared.exception.BusinessException;
@@ -10,16 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Map;
-
 @Service
 @RequiredArgsConstructor
 public class AsignarRolPlataformaUseCase {
-
-    private static final Map<String, Integer> RANGO = Map.of(
-            "SUPERADMIN", 3,
-            "ADMIN", 2,
-            "MODERADOR", 1);
 
     private final UsuarioPlataformaJpaRepository usuarioPlataformaRepository;
     private final RolPlataformaJpaRepository rolRepository;
@@ -51,6 +45,9 @@ public class AsignarRolPlataformaUseCase {
         if (!"ACTIVO".equalsIgnoreCase(rolEntity.getEstado())) {
             throw new BusinessException("El rol no está activo");
         }
+        if (!RolNombrePlataforma.esValido(rolEntity.getNombre())) {
+            throw new BusinessException("Rol no reconocido");
+        }
         exigirJerarquia(rolEntity.getNombre());
 
         objetivo.setRolPlataformaId(cmd.nuevoRolId());
@@ -62,8 +59,8 @@ public class AsignarRolPlataformaUseCase {
         if (rolActor == null) {
             throw new UnauthorizedException("Sesión inválida");
         }
-        int rangoActor = RANGO.getOrDefault(rolActor.trim().toUpperCase(), 0);
-        int rangoObjetivo = RANGO.getOrDefault(nombreRolObjetivo.trim().toUpperCase(), 0);
+        int rangoActor = RolNombrePlataforma.rangoDe(rolActor);
+        int rangoObjetivo = RolNombrePlataforma.rangoDe(nombreRolObjetivo);
         // Nadie otorga un rol igual o superior al suyo.
         if (rangoActor == 0 || rangoObjetivo == 0 || rangoObjetivo >= rangoActor) {
             throw new ForbiddenException("No puedes otorgar un rol igual o superior al tuyo");
