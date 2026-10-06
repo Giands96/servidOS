@@ -51,14 +51,18 @@ public class CrearPedidoUseCase {
         BigDecimal total = BigDecimal.ZERO;
         List<DetallePedidoJpaEntity> detallesToSave = new ArrayList<>();
         for (CrearPedidoItem item : cmd.items()) {
-            var producto = productoCatalog.findPrecioByIdAndRestaurante(item.productoId(), restauranteId)
+            var producto = productoCatalog.findInfoByIdAndRestaurante(item.productoId(), restauranteId)
                     .orElseThrow(() -> new BusinessException("Producto no encontrado: " + item.productoId()));
+            if (!producto.disponible()) {
+                throw new BusinessException("Producto no disponible: " + item.productoId());
+            }
             DetallePedido detalle = DetallePedido.crear(
                     restauranteId,
                     savedPedido.getPedidoId(),
                     item.productoId(),
                     item.cantidad(),
-                    producto,
+                    producto.nombre(),
+                    producto.precio(),
                     item.observacion());
             total = total.add(detalle.getSubtotal());
             detallesToSave.add(detalleMapper.toEntity(detalle));

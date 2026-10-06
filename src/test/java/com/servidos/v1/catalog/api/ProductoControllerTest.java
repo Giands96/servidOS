@@ -3,6 +3,7 @@ package com.servidos.v1.catalog.api;
 import com.servidos.v1.catalog.api.dto.ActualizarProductoRequest;
 import com.servidos.v1.catalog.api.dto.CrearProductoRequest;
 import com.servidos.v1.catalog.application.producto.ActualizarProductoUseCase;
+import com.servidos.v1.catalog.application.producto.CambiarEstadoProductoUseCase;
 import com.servidos.v1.catalog.application.producto.CrearProductoUseCase;
 import com.servidos.v1.catalog.application.producto.ListarProductosUseCase;
 import com.servidos.v1.catalog.domain.EstadoProducto;
@@ -32,13 +33,15 @@ class ProductoControllerTest {
 
     @Mock CrearProductoUseCase crearProductoUseCase;
     @Mock ActualizarProductoUseCase actualizarProductoUseCase;
+    @Mock CambiarEstadoProductoUseCase cambiarEstadoProductoUseCase;
     @Mock ListarProductosUseCase listarProductosUseCase;
 
     ProductoController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new ProductoController(crearProductoUseCase, actualizarProductoUseCase, listarProductosUseCase);
+        controller = new ProductoController(crearProductoUseCase, actualizarProductoUseCase,
+                cambiarEstadoProductoUseCase, listarProductosUseCase);
         TenantContext.setRestauranteId(100L);
     }
 
@@ -74,6 +77,18 @@ class ProductoControllerTest {
 
         assertEquals(HttpStatus.OK, resp.getStatusCode());
         verify(actualizarProductoUseCase).actualizar(any(), eq(100L));
+    }
+
+    @Test
+    void cambiarEstadoDelegaYDa200() {
+        when(cambiarEstadoProductoUseCase.ejecutar(eq(1L), eq(100L), eq(EstadoProducto.AGOTADO)))
+                .thenReturn(producto(1L));
+
+        var resp = controller.cambiarEstado(1L,
+                new com.servidos.v1.catalog.api.dto.CambiarEstadoProductoRequest(EstadoProducto.AGOTADO));
+
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        verify(cambiarEstadoProductoUseCase).ejecutar(1L, 100L, EstadoProducto.AGOTADO);
     }
 
     @Test

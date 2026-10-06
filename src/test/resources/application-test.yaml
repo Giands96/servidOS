@@ -5,5 +5,12 @@ spring:
     password: ${TEST_DB_PASSWORD:servidos_test}
   jpa:
     show-sql: false
+servidos:
+  auth:
+    secret: a7aoULM4n0l4zrC2bjCTdQRXIevSIImXzL6UgCT7QJG
+    issuer: servidos
+    audience: servidos-web
+    access-ttl: 10m
+    refresh-absolute-ttl: 7d
 
 debug: false

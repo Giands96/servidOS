@@ -2,6 +2,7 @@ package com.servidos.v1.catalog.infrastructure;
 
 import com.servidos.v1.catalog.infrastructure.jpa.ProductoJpaEntity;
 import com.servidos.v1.ordering.application.ProductCatalogPort;
+import com.servidos.v1.ordering.application.ProductoCatalogInfo;
 import com.servidos.v1.catalog.infrastructure.jpa.ProductoJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -23,5 +24,14 @@ public class ProductoCatalogAdapter implements ProductCatalogPort {
     public Optional<BigDecimal> findPrecioByIdAndRestaurante(Long productId, Long restauranteId) {
         return productoJpaRepository.findByProductoIdAndRestauranteId(productId, restauranteId)
                 .map(ProductoJpaEntity::getPrecio);
+    }
+
+    @Override
+    public Optional<ProductoCatalogInfo> findInfoByIdAndRestaurante(Long productId, Long restauranteId) {
+        return productoJpaRepository.findByProductoIdAndRestauranteId(productId, restauranteId)
+                .map(e -> new ProductoCatalogInfo(
+                        e.getNombre(),
+                        e.getPrecio(),
+                        e.getEstado() != com.servidos.v1.catalog.domain.EstadoProducto.AGOTADO));
     }
 }

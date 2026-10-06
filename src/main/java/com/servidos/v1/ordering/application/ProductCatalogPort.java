@@ -7,4 +7,6 @@ public interface ProductCatalogPort {
     boolean existsByProductoIdAndRestaurante(Long productId, Long restauranteId);
 
     Optional<BigDecimal> findPrecioByIdAndRestaurante(Long productId, Long restauranteId);
+
+    Optional<ProductoCatalogInfo> findInfoByIdAndRestaurante(Long productId, Long restauranteId);
 }

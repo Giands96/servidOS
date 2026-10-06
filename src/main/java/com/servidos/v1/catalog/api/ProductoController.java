@@ -1,10 +1,12 @@
 package com.servidos.v1.catalog.api;
 
 import com.servidos.v1.catalog.api.dto.ActualizarProductoRequest;
+import com.servidos.v1.catalog.api.dto.CambiarEstadoProductoRequest;
 import com.servidos.v1.catalog.api.dto.CrearProductoRequest;
 import com.servidos.v1.catalog.api.dto.ProductoResponse;
 import com.servidos.v1.catalog.application.producto.ActualizarProductoCommand;
 import com.servidos.v1.catalog.application.producto.ActualizarProductoUseCase;
+import com.servidos.v1.catalog.application.producto.CambiarEstadoProductoUseCase;
 import com.servidos.v1.catalog.application.producto.CrearProductoCommand;
 import com.servidos.v1.catalog.application.producto.CrearProductoUseCase;
 import com.servidos.v1.catalog.application.producto.ListarProductosUseCase;
@@ -27,6 +29,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -44,6 +47,7 @@ public class ProductoController {
 
     private final CrearProductoUseCase crearProductoUseCase;
     private final ActualizarProductoUseCase actualizarProductoUseCase;
+    private final CambiarEstadoProductoUseCase cambiarEstadoProductoUseCase;
     private final ListarProductosUseCase listarProductosUseCase;
 
     @PostMapping
@@ -96,6 +100,28 @@ public class ProductoController {
                         request.estado()),
                 TenantContext.getRestauranteId());
         return ResponseEntity.ok(toResponse(actualizado));
+    }
+
+    @PatchMapping("/{id}/estado")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','COCINERO')")
+    @Operation(summary = "Cambiar disponibilidad del producto",
+            description = "Solo el campo estado (DISPONIBLE/AGOTADO). Lo usa COCINA para avisar qué platos se pueden preparar. Cross-tenant → 400. Un AGOTADO no se puede pedir (el pedido da 400).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Estado actualizado",
+                    content = @Content(schema = @Schema(implementation = ProductoResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Inexistente o de otro tenant",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Sin sesión",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Sin permiso",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "422", description = "Validación Jakarta (@Valid)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
+    public ResponseEntity<ProductoResponse> cambiarEstado(
+            @Parameter(description = "ID del producto", example = "1") @PathVariable Long id,
+            @Valid @RequestBody CambiarEstadoProductoRequest request) {
+        return ResponseEntity.ok(toResponse(
+                cambiarEstadoProductoUseCase.ejecutar(id, TenantContext.getRestauranteId(), request.estado())));
     }
 
     @GetMapping

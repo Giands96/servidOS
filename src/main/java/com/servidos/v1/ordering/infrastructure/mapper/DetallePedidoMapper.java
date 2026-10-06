@@ -13,6 +13,7 @@ public class DetallePedidoMapper {
                 .pedido_id(e.getPedidoId())
                 .restaurante_id(e.getRestauranteId())
                 .producto_id(e.getProductoId())
+                .nombre_producto(e.getNombreProducto())
                 .cantidad(e.getCantidad())
                 .precio_unitario(e.getPrecioUnitario())
                 .subtotal(e.getSubtotal())
@@ -28,6 +29,7 @@ public class DetallePedidoMapper {
         e.setPedidoId(d.getPedido_id());
         e.setRestauranteId(d.getRestaurante_id());
         e.setProductoId(d.getProducto_id());
+        e.setNombreProducto(d.getNombre_producto());
         e.setCantidad(d.getCantidad());
         e.setPrecioUnitario(d.getPrecio_unitario());
         e.setSubtotal(d.getSubtotal());

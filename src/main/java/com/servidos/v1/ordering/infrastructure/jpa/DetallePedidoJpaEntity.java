@@ -22,6 +22,8 @@ public class DetallePedidoJpaEntity {
     private Long restauranteId;
     @Column(name = "producto_id", nullable = false)
     private Long productoId;
+    @Column(name = "nombre_producto", length = 150)
+    private String nombreProducto;
     @Column(name = "cantidad", nullable = false)
     private Integer cantidad;
     @Column(name = "precio_unitario", nullable = false, precision = 10, scale = 2)

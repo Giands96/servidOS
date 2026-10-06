@@ -17,6 +17,7 @@ public class DetallePedido {
     private Long pedido_id;
     private Long restaurante_id;
     private Long producto_id;
+    private String nombre_producto;
     private Integer cantidad;
     private BigDecimal precio_unitario;
     private BigDecimal subtotal;
@@ -24,7 +25,12 @@ public class DetallePedido {
     private LocalDateTime created_at;
     private LocalDateTime updated_at;
 
-    public static DetallePedido crear(Long restaurante_id, Long pedido_id, Long producto_id, Integer cantidad, BigDecimal precio_unitario, String observacion) {
+    public static DetallePedido crear(Long restaurante_id,
+                                      Long pedido_id,
+                                      Long producto_id,
+                                      Integer cantidad,
+                                      String nombre_producto,
+                                      BigDecimal precio_unitario, String observacion) {
         if (restaurante_id == null) throw new BusinessException("El restaurante_id es obligatorio");
         if (producto_id == null) throw new BusinessException("El producto_id es obligatorio");
         if (cantidad == null || cantidad <= 0) throw new BusinessException("La cantidad debe ser mayor a 0");
@@ -34,6 +40,7 @@ public class DetallePedido {
                 .restaurante_id(restaurante_id)
                 .pedido_id(pedido_id)
                 .producto_id(producto_id)
+                .nombre_producto(nombre_producto)
                 .cantidad(cantidad)
                 .precio_unitario(precio_unitario)
                 .subtotal(subtotal)
