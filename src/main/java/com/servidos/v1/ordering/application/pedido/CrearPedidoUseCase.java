@@ -87,5 +87,8 @@ public class CrearPedidoUseCase {
         if (cmd.tipoPedido() == TipoPedido.MESA && cmd.mesaId() == null) {
             throw new BusinessException("La mesa es obligatoria para pedidos en mesa");
         }
+        if (cmd.mesaId() != null && !pedidoRepository.existsMesaEnRestaurante(cmd.mesaId(), restauranteId)) {
+            throw new BusinessException("La mesa no existe");
+        }
     }
 }
