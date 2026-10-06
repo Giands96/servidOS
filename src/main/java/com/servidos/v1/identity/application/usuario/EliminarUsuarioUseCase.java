@@ -42,20 +42,15 @@ public class EliminarUsuarioUseCase {
             throw new ForbiddenException("No puedes eliminar tu propio usuario");
         }
 
-        var actorMembresia = usuarioRestauranteRepository.findById(actorId);
-        if (actorMembresia.isEmpty()
-                || !restauranteId.equals(actorMembresia.get().getRestauranteId())) {
+        if (usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(actorId, restauranteId).isEmpty()) {
             throw new ForbiddenException("Operación cross-tenant rechazada");
         }
         if (!"ADMINISTRADOR".equalsIgnoreCase(CurrentUser.getRole())) {
             throw new ForbiddenException("Solo un ADMINISTRADOR puede eliminar usuarios");
         }
 
-        var objetivo = usuarioRestauranteRepository.findById(cmd.usuarioId())
+        var objetivo = usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(cmd.usuarioId(), restauranteId)
                 .orElseThrow(() -> new BusinessException("El usuario no pertenece a este restaurante"));
-        if (!restauranteId.equals(objetivo.getRestauranteId())) {
-            throw new ForbiddenException("Operación cross-tenant rechazada");
-        }
         if (objetivo.getEstado() != EstadoUsuario.ACTIVO) {
             throw new BusinessException("El usuario ya fue eliminado");
         }

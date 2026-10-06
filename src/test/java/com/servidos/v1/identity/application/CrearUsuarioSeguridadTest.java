@@ -60,10 +60,6 @@ class CrearUsuarioSeguridadTest {
 
     @Test
     void crossTenantEs403No400() {
-        var membresia = new UsuarioRestauranteJpaEntity();
-        membresia.setUsuarioId(1L);
-        membresia.setRestauranteId(100L);
-        when(usuarioRestauranteRepository.findById(1L)).thenReturn(Optional.of(membresia));
 
         var ex = assertThrows(ForbiddenException.class,
                 () -> useCase.ejecutar(cmdBase(), 999L));
@@ -75,7 +71,7 @@ class CrearUsuarioSeguridadTest {
         var membresia = new UsuarioRestauranteJpaEntity();
         membresia.setUsuarioId(1L);
         membresia.setRestauranteId(100L);
-        when(usuarioRestauranteRepository.findById(1L)).thenReturn(Optional.of(membresia));
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(1L, 100L)).thenReturn(Optional.of(membresia));
         when(usuarioRepository.existsByEmail("ana@demo.pe")).thenReturn(false);
         when(restauranteRepository.existsById(100L)).thenReturn(true);
         var rol = new RolRestauranteJpaEntity();
@@ -92,7 +88,7 @@ class CrearUsuarioSeguridadTest {
         var membresia = new UsuarioRestauranteJpaEntity();
         membresia.setUsuarioId(1L);
         membresia.setRestauranteId(100L);
-        when(usuarioRestauranteRepository.findById(1L)).thenReturn(Optional.of(membresia));
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(1L, 100L)).thenReturn(Optional.of(membresia));
         when(usuarioRepository.existsByEmail("ana@demo.pe")).thenReturn(false);
         when(restauranteRepository.existsById(100L)).thenReturn(true);
         var rol = new RolRestauranteJpaEntity();

@@ -116,8 +116,6 @@ class EliminarUsuarioTest {
 
     @Test
     void actorDeOtroTenantEs403() {
-        when(usuarioRestauranteRepository.findById(1L))
-                .thenReturn(Optional.of(membresia(1L, 100L)));
 
         var ex = assertThrows(ForbiddenException.class, () ->
                 useCase.ejecutar(new EliminarUsuarioCommand(2L), 999L));
@@ -127,7 +125,7 @@ class EliminarUsuarioTest {
     @Test
     void noAdministradorEs403() {
         CurrentUser.setRole("CAJERO");
-        when(usuarioRestauranteRepository.findById(1L))
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(1L, 100L))
                 .thenReturn(Optional.of(membresia(1L, 100L)));
 
         var ex = assertThrows(ForbiddenException.class, () ->
@@ -137,9 +135,9 @@ class EliminarUsuarioTest {
 
     @Test
     void objetivoInexistenteEs400() {
-        when(usuarioRestauranteRepository.findById(1L))
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(1L, 100L))
                 .thenReturn(Optional.of(membresia(1L, 100L)));
-        when(usuarioRestauranteRepository.findById(2L)).thenReturn(Optional.empty());
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(2L, 100L)).thenReturn(Optional.empty());
 
         var ex = assertThrows(BusinessException.class, () ->
                 useCase.ejecutar(new EliminarUsuarioCommand(2L), 100L));
@@ -147,21 +145,22 @@ class EliminarUsuarioTest {
     }
 
     @Test
-    void objetivoDeOtroTenantEs403() {
-        when(usuarioRestauranteRepository.findById(1L))
+    void objetivoDeOtroTenantEs400SinRevelarQueExiste() {
+        // El usuario 2 existe pero en el restaurante 777: filtrado por tenant, no aparece.
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(1L, 100L))
                 .thenReturn(Optional.of(membresia(1L, 100L)));
-        when(usuarioRestauranteRepository.findById(2L))
-                .thenReturn(Optional.of(membresia(2L, 777L)));
 
-        assertThrows(ForbiddenException.class, () ->
+        var ex = assertThrows(BusinessException.class, () ->
                 useCase.ejecutar(new EliminarUsuarioCommand(2L), 100L));
+        assertEquals("El usuario no pertenece a este restaurante", ex.getMessage());
+        verify(usuarioRestauranteRepository, never()).save(any());
     }
 
     @Test
     void yaEliminadoEs400() {
-        when(usuarioRestauranteRepository.findById(1L))
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(1L, 100L))
                 .thenReturn(Optional.of(membresia(1L, 100L)));
-        when(usuarioRestauranteRepository.findById(2L))
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(2L, 100L))
                 .thenReturn(Optional.of(membresia(2L, 100L, EstadoUsuario.DESHABILITADO)));
 
         var ex = assertThrows(BusinessException.class, () ->
@@ -174,9 +173,9 @@ class EliminarUsuarioTest {
     void caminoFelizDeshabilitaYRevocaSesiones() {
         var objetivoMembresia = membresia(2L, 100L, EstadoUsuario.ACTIVO);
         var objetivoUsuario = usuario(2L, EstadoUsuario.ACTIVO);
-        when(usuarioRestauranteRepository.findById(1L))
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(1L, 100L))
                 .thenReturn(Optional.of(membresia(1L, 100L, EstadoUsuario.ACTIVO)));
-        when(usuarioRestauranteRepository.findById(2L)).thenReturn(Optional.of(objetivoMembresia));
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(2L, 100L)).thenReturn(Optional.of(objetivoMembresia));
         when(rolRepository.findById(10L)).thenReturn(Optional.of(rol(10L, "RECEPCION")));
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(objetivoUsuario));
 
@@ -192,9 +191,9 @@ class EliminarUsuarioTest {
     @Test
     void eliminarUltimoAdministradorEs409() {
         var objetivoMembresia = membresia(2L, 100L, EstadoUsuario.ACTIVO);
-        when(usuarioRestauranteRepository.findById(1L))
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(1L, 100L))
                 .thenReturn(Optional.of(membresia(1L, 100L, EstadoUsuario.ACTIVO)));
-        when(usuarioRestauranteRepository.findById(2L)).thenReturn(Optional.of(objetivoMembresia));
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(2L, 100L)).thenReturn(Optional.of(objetivoMembresia));
         when(rolRepository.findById(10L)).thenReturn(Optional.of(rol(10L, "ADMINISTRADOR")));
         when(usuarioRestauranteRepository.countByRestauranteIdAndRolRestauranteIdAndEstado(
                 100L, 10L, EstadoUsuario.ACTIVO)).thenReturn(1L);
@@ -211,9 +210,9 @@ class EliminarUsuarioTest {
     void eliminarAdministradorConParFunciona() {
         var objetivoMembresia = membresia(2L, 100L, EstadoUsuario.ACTIVO);
         var objetivoUsuario = usuario(2L, EstadoUsuario.ACTIVO);
-        when(usuarioRestauranteRepository.findById(1L))
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(1L, 100L))
                 .thenReturn(Optional.of(membresia(1L, 100L, EstadoUsuario.ACTIVO)));
-        when(usuarioRestauranteRepository.findById(2L)).thenReturn(Optional.of(objetivoMembresia));
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(2L, 100L)).thenReturn(Optional.of(objetivoMembresia));
         when(rolRepository.findById(10L)).thenReturn(Optional.of(rol(10L, "ADMINISTRADOR")));
         when(usuarioRestauranteRepository.countByRestauranteIdAndRolRestauranteIdAndEstado(
                 100L, 10L, EstadoUsuario.ACTIVO)).thenReturn(2L);

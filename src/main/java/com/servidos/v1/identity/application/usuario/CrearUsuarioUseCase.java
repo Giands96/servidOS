@@ -98,9 +98,7 @@ public class CrearUsuarioUseCase {
         if (actorId == null) {
             throw new UnauthorizedException("Sesión inválida");
         }
-        var actorMembresia = usuarioRestauranteRepository.findById(actorId);
-        if (actorMembresia.isEmpty()
-                || !restauranteIdDestino.equals(actorMembresia.get().getRestauranteId())) {
+        if (usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(actorId, restauranteIdDestino).isEmpty()) {
             throw new ForbiddenException("Operación cross-tenant rechazada");
         }
     }
