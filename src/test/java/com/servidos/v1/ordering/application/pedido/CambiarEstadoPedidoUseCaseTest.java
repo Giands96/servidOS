@@ -156,4 +156,24 @@ class CambiarEstadoPedidoUseCaseTest {
         assertEquals(1L, captor.getValue().getPedidoId());
         assertEquals(10L, captor.getValue().getRestauranteId());
     }
+
+    @Test
+    void deliveryEnEntregaSinPagoSePuedeCancelar() {
+        dadoSave();
+        dadoPedido(pedido(EstadoPedido.EN_ENTREGA, TipoPedido.DELIVERY));
+        when(pagoPort.estaPagado(1L, 10L)).thenReturn(false);
+
+        assertEquals(EstadoPedido.CANCELADO,
+                useCase.ejecutar(1L, 10L, EstadoPedido.CANCELADO).getEstado());
+    }
+
+    @Test
+    void deliveryEnEntregaPagadoNoSePuedeCancelar() {
+        dadoPedido(pedido(EstadoPedido.EN_ENTREGA, TipoPedido.DELIVERY));
+        when(pagoPort.estaPagado(1L, 10L)).thenReturn(true);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> useCase.ejecutar(1L, 10L, EstadoPedido.CANCELADO));
+        assertTrue(ex.getMessage().contains("pagado"));
+    }
 }

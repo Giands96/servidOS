@@ -70,8 +70,10 @@ public class CambiarEstadoPedidoUseCase {
                             actual, nuevo);
                 }
             }
+            // Un delivery fallido (cliente ausente, dirección errónea) se puede cancelar.
+            // Si ya estaba pagado, el chequeo de arriba lo frena: primero se reembolsa.
             case EN_ENTREGA -> exigir(
-                    delivery && nuevo == EstadoPedido.ENTREGADO,
+                    delivery && (nuevo == EstadoPedido.ENTREGADO || nuevo == EstadoPedido.CANCELADO),
                     actual, nuevo);
             default -> throw new BusinessException(
                     "El pedido en estado " + actual + " no admite cambios");
