@@ -55,7 +55,7 @@ class PedidoControllerTest {
 
     @Test
     void crearDelegaYDa201() {
-        when(crearPedidoUseCase.ejecutar(any(), eq(100L))).thenReturn(pedido(EstadoPedido.PENDIENTE));
+        when(crearPedidoUseCase.ejecutar(any(), eq(100L), any())).thenReturn(pedido(EstadoPedido.PENDIENTE));
 
         var resp = controller.crear(new CrearPedidoRequest(TipoPedido.MESA, 3L, null, null,
                 List.of(new CrearPedidoItemRequest(7L, 2, null))));

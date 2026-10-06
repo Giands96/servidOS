@@ -33,12 +33,14 @@ public class CrearPedidoUseCase {
     private final EventPublisher eventPublisher;
 
     @Transactional
-    public Pedido ejecutar(CrearPedidoCommand cmd, Long restauranteId) {
+    public Pedido ejecutar(CrearPedidoCommand cmd, Long restauranteId, Long usuarioId) {
         if (restauranteId == null) throw new BusinessException("Restaurante no identificado");
+        // pedido.usuario_id es NOT NULL: registra quién tomó el pedido.
+        if (usuarioId == null) throw new BusinessException("Usuario no identificado");
         validar(cmd, restauranteId);
 
         Pedido pedidoDomain = Pedido.crear(restauranteId,
-                null,
+                usuarioId,
                 cmd.mesaId(),
                 cmd.tipoPedido(),
                 cmd.observacion(),
