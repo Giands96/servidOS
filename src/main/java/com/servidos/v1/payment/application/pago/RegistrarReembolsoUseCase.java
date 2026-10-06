@@ -27,8 +27,9 @@ public class RegistrarReembolsoUseCase {
         if (restauranteId == null) throw new BusinessException("Restaurante no identificado");
         Long actorId = CurrentUser.getCurrentUser();
         if (actorId == null) throw new BusinessException("Usuario no identificado");
-        if (!"ADMINISTRADOR".equalsIgnoreCase(CurrentUser.getRole())) {
-            throw new ForbiddenException("Solo un ADMINISTRADOR puede reembolsar pagos");
+        if (!"ADMINISTRADOR".equalsIgnoreCase(CurrentUser.getRole())
+                && !"RECEPCION".equalsIgnoreCase(CurrentUser.getRole())) {
+            throw new ForbiddenException("Solo un ADMINISTRADOR o RECEPCION puede reembolsar pagos");
         }
 
         PagoJpaEntity entity = pagoRepository.findByPagoIdAndRestauranteId(cmd.pagoId(), restauranteId)

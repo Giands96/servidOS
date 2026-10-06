@@ -43,7 +43,7 @@ public class PedidoController {
     private final CambiarEstadoPedidoUseCase cambiarEstadoPedidoUseCase;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION')")
     @Operation(summary = "Crear pedido en el restaurante actual",
             description = "El restauranteId se toma del JWT, nunca del JSON. Precios anti-tamper desde DB.")
     @ApiResponses({
@@ -70,9 +70,9 @@ public class PedidoController {
     }
 
     @PostMapping("/{id}/confirmar")
-    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION')")
     @Operation(summary = "Confirmar pedido (PENDIENTE → EN_PREPARACION)",
-            description = "Lo usa RECEPCIÓN para mover delivery. Delega la matriz de transición.")
+            description = "Lo usa RECEPCION para mandar el pedido a preparación. Delega la matriz de transición.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Pedido confirmado",
                     content = @Content(schema = @Schema(implementation = PedidoResponse.class))),
@@ -89,7 +89,7 @@ public class PedidoController {
     }
 
     @PatchMapping("/{id}/estado")
-    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION')")
     @Operation(summary = "Cambiar estado del pedido",
             description = "Respeta la matriz por tipo (MESA/DELIVERY). CANCELADO en pedido pagado → 400.")
     @ApiResponses({

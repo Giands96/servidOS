@@ -11,4 +11,6 @@ public record PagoResponse(
         BigDecimal monto,
         BigDecimal vuelto,
         MetodoPago metodoPago,
-        EstadoPago estado) {}
+        EstadoPago estado,
+        String reembolsoMotivo,
+        Long reembolsoUsuarioId) {}

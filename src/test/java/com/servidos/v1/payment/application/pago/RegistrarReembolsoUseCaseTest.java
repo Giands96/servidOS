@@ -82,7 +82,21 @@ class RegistrarReembolsoUseCaseTest {
     }
 
     @Test
-    void soloAdministradorPuedeReembolsar() {
+    void recepcionPuedeReembolsarYQuedaAuditado() {
+        CurrentUser.setRole("RECEPCION");
+        dadoPago(pago(EstadoPago.PAGADO));
+        when(pagoRepository.save(any(PagoJpaEntity.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        var reembolsado = useCase.ejecutar(new ReembolsarPagoCommand(5L, "Cobro duplicado"), 10L);
+
+        assertEquals(EstadoPago.REEMBOLSADO, reembolsado.getEstado());
+        assertEquals("Cobro duplicado", reembolsado.getReembolsoMotivo());
+        assertEquals(1L, reembolsado.getReembolsoUsuarioId());
+    }
+
+    @Test
+    void soloAdministradorORecepcionPuedeReembolsar() {
         CurrentUser.setRole("CAJERO");
         assertThrows(ForbiddenException.class,
                 () -> useCase.ejecutar(new ReembolsarPagoCommand(5L, "Error"), 10L));
