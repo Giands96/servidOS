@@ -1,5 +1,6 @@
 package com.servidos.v1.payment.application.pago;
 
+import com.servidos.v1.ordering.domain.EstadoPedido;
 import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaRepository;
 import com.servidos.v1.payment.domain.EstadoPago;
 import com.servidos.v1.payment.domain.MetodoPago;
@@ -35,6 +36,13 @@ public class RegistrarPagoUseCase {
 
         var pedido = pedidoRepository.findByPedidoIdAndRestauranteId(cmd.pedidoId(), restauranteId)
                 .orElseThrow(() -> new BusinessException("Pedido no encontrado"));
+
+        // Un pedido cancelado no se cobra. El estado PAGADO no vive en el pedido (no
+        // existe en EstadoPedido): el "ya pagado" se resuelve abajo, sobre el pago.
+        // Sin este chequeo se podía cancelar un pedido y cobrarlo igual, con 201.
+        if (pedido.getEstado() == EstadoPedido.CANCELADO) {
+            throw new BusinessException("El pedido está cancelado, no se puede registrar el pago");
+        }
 
         if (pagoRepository.existsByPedidoIdAndRestauranteIdAndEstado(cmd.pedidoId(), restauranteId, EstadoPago.PAGADO)) {
             throw new BusinessException("Pedido ya pagado");

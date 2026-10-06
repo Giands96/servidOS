@@ -1,8 +1,8 @@
 package com.servidos.v1.tenant.application.restaurante;
 
 import com.servidos.v1.shared.exception.BusinessException;
+import com.servidos.v1.tenant.application.suscripcion.SuscripcionConPlan;
 import com.servidos.v1.tenant.domain.Restaurante;
-import com.servidos.v1.tenant.domain.Suscripcion;
 import com.servidos.v1.tenant.infrastructure.jpa.RestauranteJpaRepository;
 import com.servidos.v1.tenant.infrastructure.jpa.SuscripcionJpaRepository;
 import com.servidos.v1.tenant.infrastructure.mapper.RestauranteMapper;
@@ -28,10 +28,10 @@ public class ObtenerRestauranteUseCase {
     }
 
     @Transactional(readOnly = true)
-    public Suscripcion obtenerSuscripcion(Long restauranteId) {
+    public SuscripcionConPlan obtenerSuscripcion(Long restauranteId) {
         if (restauranteId == null) throw new BusinessException("El restaurante es obligatorio");
-        var entity = suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDesc(restauranteId)
-                .orElseThrow(() -> new BusinessException("No se encontró suscripción para el restaurante"));
-        return suscripcionMapper.toDomain(entity);
+        var rows = suscripcionRepository.listarActualConNombrePlan(restauranteId);
+        if (rows.isEmpty()) throw new BusinessException("No se encontró suscripción para el restaurante");
+        return rows.get(0);
     }
 }

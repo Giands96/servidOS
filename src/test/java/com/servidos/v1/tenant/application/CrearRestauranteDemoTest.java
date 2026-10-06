@@ -4,6 +4,8 @@ import com.servidos.v1.shared.event.EventPublisher;
 import com.servidos.v1.shared.exception.BusinessException;
 import com.servidos.v1.tenant.application.restaurante.CrearRestauranteCommand;
 import com.servidos.v1.tenant.application.restaurante.CrearRestauranteUseCase;
+import com.servidos.v1.tenant.domain.Plan;
+import com.servidos.v1.tenant.infrastructure.jpa.PlanJpaEntity;
 import com.servidos.v1.tenant.infrastructure.jpa.PlanJpaRepository;
 import com.servidos.v1.tenant.infrastructure.jpa.RestauranteJpaEntity;
 import com.servidos.v1.tenant.infrastructure.jpa.RestauranteJpaRepository;
@@ -20,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,7 +45,13 @@ class CrearRestauranteDemoTest {
 
     private void baseStubs() {
         when(restauranteRepository.existsBySlug("demo")).thenReturn(false);
-        when(planRepository.existsById(9L)).thenReturn(true);
+        var plan = new PlanJpaEntity();
+        plan.setPlanId(9L);
+        plan.setNombrePlan("Estándar");
+        plan.setPrecioPlan(new BigDecimal("34.90"));
+        plan.setEstado(Plan.EstadoPlan.ACTIVO.name());
+        when(planRepository.findByPlanIdAndEstado(9L, Plan.EstadoPlan.ACTIVO.name()))
+                .thenReturn(java.util.Optional.of(plan));
         var savedR = new RestauranteJpaEntity();
         savedR.setRestauranteId(5L);
         savedR.setSlug("demo");

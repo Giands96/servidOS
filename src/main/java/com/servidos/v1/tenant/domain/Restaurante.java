@@ -26,4 +26,19 @@ public class Restaurante {
         if (nombre.trim().length() > 150) throw new BusinessException("El nombre no puede tener más de 150 caracteres");
         return Restaurante.builder().slug(s).nombre(nombre.trim()).direccion(direccion).estado(EstadoRestaurante.ACTIVO).build();
     }
+
+    /**
+     * Cambia el estado del restaurante. Es la palanca de acceso del tenant: en
+     * {@code INACTIVO} el {@code SubscriptionFilter} frena las escrituras con 402 pero
+     * deja pasar las lecturas, para que el cliente conserve acceso de solo lectura a
+     * sus datos mientras regulariza la suscripción.
+     *
+     * <p>La reactivación es un acto de la plataforma (SUPERADMIN), nunca del tenant:
+     * el cobro se resuelve fuera del sistema, así que el sistema no tiene cómo
+     * verificar que el pago ocurrió y no puede auto-reactivar.
+     */
+    public void cambiarEstado(EstadoRestaurante nuevo) {
+        if (nuevo == null) throw new BusinessException("El estado es obligatorio");
+        this.estado = nuevo;
+    }
 }

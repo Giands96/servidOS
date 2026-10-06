@@ -1,5 +1,6 @@
 package com.servidos.v1.identity.infrastructure.security;
 
+import com.servidos.v1.shared.security.SubscriptionFilter;
 import com.servidos.v1.shared.security.TenantFilter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -22,9 +23,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final TenantFilter tenantFilter;
+    private final SubscriptionFilter subscriptionFilter;
 
-    public SecurityConfig(TenantFilter tenantFilter) {
+    public SecurityConfig(TenantFilter tenantFilter, SubscriptionFilter subscriptionFilter) {
         this.tenantFilter = tenantFilter;
+        this.subscriptionFilter = subscriptionFilter;
     }
 
     @Bean
@@ -37,6 +40,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/api/v1/**").authenticated()
                         .anyRequest().denyAll()
                 )
@@ -44,7 +48,10 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // No guardar sesión, usamos JWT
                 )
                 // Agregamos tu filtro antes del filtro de usuario/contraseña de Spring
-                .addFilterBefore(tenantFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(tenantFilter, UsernamePasswordAuthenticationFilter.class)
+                // Suspensión manual: corre después del TenantFilter (necesita el TenantContext)
+                // y frena escrituras con 402 si la suscripción actual está CANCELADA.
+                .addFilterAfter(subscriptionFilter, TenantFilter.class);
 
         return http.build();
     }

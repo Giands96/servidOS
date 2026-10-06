@@ -1,5 +1,6 @@
 package com.servidos.v1.tenant.application.suscripcion;
 
+import com.servidos.v1.tenant.domain.Plan;
 import com.servidos.v1.tenant.domain.Suscripcion;
 import com.servidos.v1.tenant.domain.Suscripcion.EstadoSuscripcion;
 import com.servidos.v1.tenant.infrastructure.jpa.SuscripcionJpaRepository;
@@ -25,9 +26,10 @@ public class GestionarSuscripcionUseCase {
         if (restauranteId == null) throw new BusinessException("El restaurante es obligatorio");
         if (planId == null) throw new BusinessException("El plan es obligatorio");
         if (!restauranteRepository.existsById(restauranteId)) throw new BusinessException("El restaurante no existe");
-        if (!planRepository.existsById(planId)) throw new BusinessException("El plan no existe");
+        var plan = planRepository.findByPlanIdAndEstado(planId, Plan.EstadoPlan.ACTIVO.name())
+                .orElseThrow(() -> new BusinessException("El plan no existe o no está activo"));
 
-        var existente = suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDesc(restauranteId);
+        var existente = suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(restauranteId);
         if (existente.isPresent()) {
             var e = existente.get();
             if (e.getEstado() == EstadoSuscripcion.ACTIVA && e.getFechaFin() != null && !e.getFechaFin().isBefore(LocalDate.now())) {
@@ -35,7 +37,8 @@ public class GestionarSuscripcionUseCase {
             }
         }
 
-        Suscripcion suscripcion = Suscripcion.crear(restauranteId, planId, LocalDate.now(), LocalDate.now().plusDays(30));
+        Suscripcion suscripcion = Suscripcion.crear(restauranteId, plan.getPlanId(),
+                plan.getPrecioPlan(), Plan.MONEDA_PEN, LocalDate.now(), LocalDate.now().plusDays(30));
         var saved = suscripcionRepository.save(suscripcionMapper.toEntity(suscripcion));
         return suscripcionMapper.toDomain(saved);
     }
@@ -43,7 +46,7 @@ public class GestionarSuscripcionUseCase {
     @Transactional
     public void cancelar(Long restauranteId) {
         if (restauranteId == null) throw new BusinessException("El restaurante es obligatorio");
-        var opt = suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDesc(restauranteId);
+        var opt = suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(restauranteId);
         if (opt.isEmpty()) throw new BusinessException("No se encontró suscripción para el restaurante");
         var entity = opt.get();
         if (entity.getEstado() != EstadoSuscripcion.ACTIVA) throw new BusinessException("La suscripción no está activa");

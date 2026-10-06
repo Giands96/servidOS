@@ -1,5 +1,6 @@
 package com.servidos.v1.tenant.application.suscripcion;
 
+import com.servidos.v1.tenant.domain.Plan;
 import com.servidos.v1.tenant.domain.Suscripcion;
 import com.servidos.v1.tenant.domain.Suscripcion.EstadoSuscripcion;
 import com.servidos.v1.tenant.domain.event.PlanCambiadoEvent;
@@ -30,16 +31,17 @@ public class CambiarPlanUseCase {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public Suscripcion ejecutar(CambiarPlanCommand cmd) {
+    public SuscripcionConPlan ejecutar(CambiarPlanCommand cmd) {
         if (cmd.restauranteId() == null) throw new BusinessException("El restaurante es obligatorio");
         if (cmd.nuevoPlanId() == null) throw new BusinessException("El plan es obligatorio");
         if (!Boolean.TRUE.equals(cmd.confirmado())) throw new BusinessException("Debes confirmar el cambio de plan");
         if (cmd.password() == null || cmd.password().isEmpty()) throw new BusinessException("La contraseña es obligatoria");
         exigirPassword(cmd.password());
         if (!restauranteRepository.existsById(cmd.restauranteId())) throw new BusinessException("El restaurante no existe");
-        if (!planRepository.existsById(cmd.nuevoPlanId())) throw new BusinessException("El plan no existe");
+        var plan = planRepository.findByPlanIdAndEstado(cmd.nuevoPlanId(), Plan.EstadoPlan.ACTIVO.name())
+                .orElseThrow(() -> new BusinessException("El plan no existe o no está activo"));
 
-        var opt = suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDesc(cmd.restauranteId());
+        var opt = suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(cmd.restauranteId());
         if (opt.isEmpty()) throw new BusinessException("No se encontró suscripción para el restaurante");
         var actual = opt.get();
         if (actual.getEstado() != EstadoSuscripcion.ACTIVA) throw new BusinessException("La suscripción no está activa");
@@ -50,12 +52,13 @@ public class CambiarPlanUseCase {
 
         LocalDate fechaInicio = LocalDate.now();
         LocalDate fechaFin = fechaInicio.plusDays(30);
-        Suscripcion nueva = Suscripcion.crear(cmd.restauranteId(), cmd.nuevoPlanId(), fechaInicio, fechaFin);
+        Suscripcion nueva = Suscripcion.crear(cmd.restauranteId(), plan.getPlanId(),
+                plan.getPrecioPlan(), Plan.MONEDA_PEN, fechaInicio, fechaFin);
         var saved = suscripcionRepository.save(suscripcionMapper.toEntity(nueva));
 
         eventPublisher.publish(new PlanCambiadoEvent(cmd.restauranteId(), viejoPlanId, cmd.nuevoPlanId()));
 
-        return suscripcionMapper.toDomain(saved);
+        return new SuscripcionConPlan(suscripcionMapper.toDomain(saved), plan.getNombrePlan());
     }
 
     private void exigirPassword(String password) {

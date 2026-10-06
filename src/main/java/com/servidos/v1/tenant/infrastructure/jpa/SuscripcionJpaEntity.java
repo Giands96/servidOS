@@ -2,9 +2,12 @@ package com.servidos.v1.tenant.infrastructure.jpa;
 
 import com.servidos.v1.tenant.domain.Suscripcion.EstadoSuscripcion;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -19,6 +22,11 @@ public class SuscripcionJpaEntity {
     private Long restauranteId;
     @Column(name = "plan_id", nullable = false)
     private Long planId;
+    @Column(name = "monto", nullable = false, precision = 10, scale = 2)
+    private BigDecimal monto;
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "moneda", nullable = false, length = 3)
+    private String moneda;
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false, length = 20)
     private EstadoSuscripcion estado;

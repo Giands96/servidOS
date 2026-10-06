@@ -11,13 +11,19 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class Plan {
 
+    /**
+     * Moneda por defecto del catálogo. Se copia a suscripcion.moneda como snapshot:
+     * la suscripción recuerda en qué moneda se cobró aunque el plan cambie después.
+     */
+    public static final String MONEDA_PEN = "PEN";
+
     private Long plan_id;
     private String nombre_plan;
     private BigDecimal precio_plan;
     private String descripcion;
     private EstadoPlan estado;
 
-    enum EstadoPlan {
+    public enum EstadoPlan {
         ACTIVO,
         INACTIVO
     }
