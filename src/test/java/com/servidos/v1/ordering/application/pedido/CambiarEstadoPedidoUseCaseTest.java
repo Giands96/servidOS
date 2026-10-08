@@ -4,6 +4,7 @@ import com.servidos.v1.ordering.application.PedidoPagoPort;
 import com.servidos.v1.ordering.domain.EstadoPedido;
 import com.servidos.v1.ordering.domain.TipoPedido;
 import com.servidos.v1.ordering.domain.event.PedidoCanceladoEvent;
+import com.servidos.v1.ordering.domain.event.PedidoEstadoCambiadoEvent;
 import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaEntity;
 import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaRepository;
 import com.servidos.v1.ordering.infrastructure.mapper.PedidoMapper;
@@ -21,6 +22,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -151,10 +153,24 @@ class CambiarEstadoPedidoUseCaseTest {
         assertEquals(EstadoPedido.CANCELADO,
                 useCase.ejecutar(1L, 10L, EstadoPedido.CANCELADO).getEstado());
 
-        var captor = ArgumentCaptor.forClass(PedidoCanceladoEvent.class);
+        verify(eventPublisher).publish(argThat(e -> e instanceof PedidoCanceladoEvent c
+                && c.getPedidoId().equals(1L) && c.getRestauranteId().equals(10L)));
+    }
+
+    /** Todo cambio de estado se publica con el estado anterior: lo usa el tablero de cocina (WebSocket). */
+    @Test
+    void cambiarEstadoPublicaEstadoAnteriorYNuevo() {
+        dadoSave();
+        dadoPedido(pedido(EstadoPedido.PENDIENTE, TipoPedido.MESA));
+
+        useCase.ejecutar(1L, 10L, EstadoPedido.EN_PREPARACION);
+
+        var captor = ArgumentCaptor.forClass(PedidoEstadoCambiadoEvent.class);
         verify(eventPublisher).publish(captor.capture());
         assertEquals(1L, captor.getValue().getPedidoId());
         assertEquals(10L, captor.getValue().getRestauranteId());
+        assertEquals(EstadoPedido.PENDIENTE, captor.getValue().getEstadoAnterior());
+        assertEquals(EstadoPedido.EN_PREPARACION, captor.getValue().getEstadoNuevo());
     }
 
     @Test

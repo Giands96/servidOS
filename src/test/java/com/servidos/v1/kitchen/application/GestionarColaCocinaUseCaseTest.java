@@ -137,4 +137,24 @@ class GestionarColaCocinaUseCaseTest {
 
         assertTrue(useCase.listarEnPreparacion(1L).isEmpty());
     }
+
+    @Test
+    void listosSoloTraePedidosListosDelTenant() {
+        when(pedidoRepository.findByRestauranteIdAndEstado(1L, EstadoPedido.LISTO))
+                .thenReturn(List.of(pedido(EstadoPedido.LISTO)));
+        when(detalleRepository.findByPedidoIdAndRestauranteId(10L, 1L)).thenReturn(List.of());
+
+        var listos = useCase.listarListos(1L);
+
+        assertEquals(1, listos.size());
+        assertEquals(EstadoPedido.LISTO, listos.get(0).getEstado());
+        verify(pedidoRepository, never()).findByRestauranteIdAndEstado(1L, EstadoPedido.EN_PREPARACION);
+    }
+
+    @Test
+    void listosExigeRestaurante() {
+        var ex = assertThrows(BusinessException.class, () -> useCase.listarListos(null));
+        assertEquals("Restaurante no identificado", ex.getMessage());
+        verify(pedidoRepository, never()).findByRestauranteIdAndEstado(any(), any());
+    }
 }

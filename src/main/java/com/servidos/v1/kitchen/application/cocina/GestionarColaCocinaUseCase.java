@@ -28,10 +28,22 @@ public class GestionarColaCocinaUseCase {
      * No tiene tabla propia; lee directamente ordering.pedido.
      */
     public List<PreparacionPedido> listarEnPreparacion(Long restauranteId) {
+        return listarPorEstado(restauranteId, EstadoPedido.EN_PREPARACION);
+    }
+
+    /**
+     * Lista pedidos LISTOS (ya preparados, pendientes de servir o despachar) del restaurante.
+     * Misma proyección que la cola de preparación.
+     */
+    public List<PreparacionPedido> listarListos(Long restauranteId) {
+        return listarPorEstado(restauranteId, EstadoPedido.LISTO);
+    }
+
+    private List<PreparacionPedido> listarPorEstado(Long restauranteId, EstadoPedido estado) {
         if (restauranteId == null) {
             throw new BusinessException("Restaurante no identificado");
         }
-        var pedidos = pedidoRepository.findByRestauranteIdAndEstado(restauranteId, EstadoPedido.EN_PREPARACION);
+        var pedidos = pedidoRepository.findByRestauranteIdAndEstado(restauranteId, estado);
         return pedidos.stream().map(pedido -> {
             var items = detalleRepository.findByPedidoIdAndRestauranteId(pedido.getPedidoId(), restauranteId)
                     .stream()
