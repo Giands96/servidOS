@@ -31,6 +31,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -71,7 +72,7 @@ class CambiarPlanHardenTest {
         actual.setEstado(EstadoSuscripcion.ACTIVA);
         actual.setPlanId(3L);
         actual.setFechaFin(LocalDate.now().plusDays(5));
-        when(suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(7L))
+        when(suscripcionRepository.findTopByRestauranteIdAndFechaInicioLessThanEqualOrderBySuscripcionIdDesc(eq(7L), any()))
                 .thenReturn(Optional.of(actual));
         when(suscripcionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
         when(suscripcionMapper.toEntity(any())).thenCallRealMethod();

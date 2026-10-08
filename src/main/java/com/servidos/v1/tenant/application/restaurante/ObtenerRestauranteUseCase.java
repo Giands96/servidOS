@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+
 @Service
 @RequiredArgsConstructor
 public class ObtenerRestauranteUseCase {
@@ -30,7 +32,7 @@ public class ObtenerRestauranteUseCase {
     @Transactional(readOnly = true)
     public SuscripcionConPlan obtenerSuscripcion(Long restauranteId) {
         if (restauranteId == null) throw new BusinessException("El restaurante es obligatorio");
-        var rows = suscripcionRepository.listarActualConNombrePlan(restauranteId);
+        var rows = suscripcionRepository.listarActualConNombrePlan(restauranteId, LocalDate.now());
         if (rows.isEmpty()) throw new BusinessException("No se encontró suscripción para el restaurante");
         return rows.get(0);
     }

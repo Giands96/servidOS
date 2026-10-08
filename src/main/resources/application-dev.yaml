@@ -3,8 +3,8 @@ spring:
     import: "optional:file:${user.dir}/.env[.properties]"
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/servidos}
-    username: servidos_test
-    password: servidos_test
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
   flyway:
     placeholders:
       # Dev: el SUPERADMIN de plataforma se crea solo en BD nueva (V9).

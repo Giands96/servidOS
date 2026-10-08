@@ -7,8 +7,12 @@ import com.servidos.v1.tenant.infrastructure.jpa.SuscripcionJpaRepository;
 import com.servidos.v1.tenant.infrastructure.jpa.PlanJpaRepository;
 import com.servidos.v1.tenant.infrastructure.jpa.RestauranteJpaRepository;
 import com.servidos.v1.tenant.infrastructure.mapper.SuscripcionMapper;
+import com.servidos.v1.identity.infrastructure.UsuarioJpaRepository;
 import com.servidos.v1.shared.exception.BusinessException;
+import com.servidos.v1.shared.exception.UnauthorizedException;
+import com.servidos.v1.shared.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
@@ -20,6 +24,8 @@ public class GestionarSuscripcionUseCase {
     private final RestauranteJpaRepository restauranteRepository;
     private final PlanJpaRepository planRepository;
     private final SuscripcionMapper suscripcionMapper;
+    private final UsuarioJpaRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public Suscripcion suscribir(Long restauranteId, Long planId) {
@@ -44,14 +50,34 @@ public class GestionarSuscripcionUseCase {
     }
 
     @Transactional
-    public void cancelar(Long restauranteId) {
+    public void cancelar(Long restauranteId, String password) {
         if (restauranteId == null) throw new BusinessException("El restaurante es obligatorio");
-        var opt = suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(restauranteId);
-        if (opt.isEmpty()) throw new BusinessException("No se encontró suscripción para el restaurante");
-        var entity = opt.get();
+        if (password == null || password.isEmpty()) throw new BusinessException("La contraseña es obligatoria");
+        exigirPassword(password);
+        // Cancelar = no renovar: la actual queda CANCELADA pero el restaurante opera
+        // hasta su fecha_fin (SubscriptionFilter). Las renovaciones ya programadas
+        // también se cancelan, si no el acceso seguiría después de fecha_fin.
+        LocalDate hoy = LocalDate.now();
+        var entity = suscripcionRepository
+                .findTopByRestauranteIdAndFechaInicioLessThanEqualOrderBySuscripcionIdDesc(restauranteId, hoy)
+                .orElseThrow(() -> new BusinessException("No se encontró suscripción para el restaurante"));
         if (entity.getEstado() != EstadoSuscripcion.ACTIVA) throw new BusinessException("La suscripción no está activa");
         entity.setEstado(EstadoSuscripcion.CANCELADA);
         suscripcionRepository.save(entity);
+        for (var programada : suscripcionRepository
+                .findByRestauranteIdAndEstadoAndFechaInicioAfter(restauranteId, EstadoSuscripcion.ACTIVA, hoy)) {
+            programada.setEstado(EstadoSuscripcion.CANCELADA);
+            suscripcionRepository.save(programada);
+        }
     }
 
+    private void exigirPassword(String password) {
+        Long actorId = CurrentUser.getCurrentUser();
+        if (actorId == null) throw new UnauthorizedException("Sesión inválida");
+        var usuario = usuarioRepository.findById(actorId)
+                .orElseThrow(() -> new UnauthorizedException("Sesión inválida"));
+        if (!passwordEncoder.matches(password, usuario.getPasswordHash())) {
+            throw new UnauthorizedException("Credenciales inválidas");
+        }
+    }
 }

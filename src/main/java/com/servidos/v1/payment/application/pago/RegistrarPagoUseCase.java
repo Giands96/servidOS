@@ -47,6 +47,11 @@ public class RegistrarPagoUseCase {
         if (pagoRepository.existsByPedidoIdAndRestauranteIdAndEstado(cmd.pedidoId(), restauranteId, EstadoPago.PAGADO)) {
             throw new BusinessException("Pedido ya pagado");
         }
+        // El reembolso es definitivo: un pedido reembolsado no se vuelve a cobrar.
+        // Sin este chequeo el UNIQUE(pedido_id) respondía "Pedido ya pagado", que era falso.
+        if (pagoRepository.existsByPedidoIdAndRestauranteIdAndEstado(cmd.pedidoId(), restauranteId, EstadoPago.REEMBOLSADO)) {
+            throw new BusinessException("El pedido fue reembolsado, no se puede volver a cobrar");
+        }
 
         BigDecimal total = pedido.getTotal();
         BigDecimal vuelto = null;

@@ -1,67 +1,71 @@
 package com.servidos.v1.tenant.application.suscripcion;
 
+import com.servidos.v1.shared.event.EventPublisher;
 import com.servidos.v1.shared.exception.BusinessException;
-import com.servidos.v1.identity.infrastructure.UsuarioJpaRepository;
-import com.servidos.v1.shared.exception.UnauthorizedException;
-import com.servidos.v1.shared.security.CurrentUser;
+import com.servidos.v1.tenant.domain.EstadoRestaurante;
 import com.servidos.v1.tenant.domain.Plan;
 import com.servidos.v1.tenant.domain.Suscripcion;
+import com.servidos.v1.tenant.domain.event.RestauranteEstadoCambiadoEvent;
 import com.servidos.v1.tenant.infrastructure.jpa.PlanJpaRepository;
+import com.servidos.v1.tenant.infrastructure.jpa.RestauranteJpaRepository;
 import com.servidos.v1.tenant.infrastructure.jpa.SuscripcionJpaRepository;
 import com.servidos.v1.tenant.infrastructure.mapper.SuscripcionMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 
+/**
+ * Renovación de suscripción hecha por la plataforma. El cliente paga fuera del sistema
+ * (billetera digital) y la plataforma registra el período pagado: no es self-service.
+ * <ul>
+ *   <li>Sin suscripción previa crea la primera; el plan es obligatorio.</li>
+ *   <li>Con suscripción, el plan es el indicado o el de la última. Si la última sigue
+ *       vigente, la nueva se encadena en {@code fecha_fin + 1} (queda programada); si no,
+ *       arranca hoy.</li>
+ *   <li>Si el restaurante estaba INACTIVO, queda ACTIVO: pagó y sigue su flujo normal.</li>
+ * </ul>
+ * El monto se copia del precio de lista vigente del plan: cambiar el precio de lista
+ * afecta a quien renueva, pero las suscripciones ya emitidas conservan su monto.
+ */
 @Service
 @RequiredArgsConstructor
 public class RenovarSuscripcionUseCase {
     private final SuscripcionJpaRepository suscripcionRepository;
     private final PlanJpaRepository planRepository;
+    private final RestauranteJpaRepository restauranteRepository;
     private final SuscripcionMapper suscripcionMapper;
-    private final UsuarioJpaRepository usuarioRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final EventPublisher eventPublisher;
 
     @Transactional
     public SuscripcionConPlan ejecutar(RenovarSuscripcionCommand cmd) {
         if (cmd.restauranteId() == null) throw new BusinessException("El restaurante es obligatorio");
-        if (cmd.password() == null || cmd.password().isEmpty()) throw new BusinessException("La contraseña es obligatoria");
-        exigirPassword(cmd.password());
-        var opt = suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(cmd.restauranteId());
-        if (opt.isEmpty()) throw new BusinessException("No se encontró suscripción para el restaurante");
-        var actual = opt.get();
-        // Una CANCELADA también puede renovar: es la vía de reactivación self-service.
-        // Crea una ACTIVA nueva por INSERT (la vieja queda como historial); si la fecha
-        // de fin ya pasó, arranca hoy por la regla de abajo.
+        var restaurante = restauranteRepository.findById(cmd.restauranteId())
+                .orElseThrow(() -> new BusinessException("El restaurante no existe"));
 
-        // El monto se vuelve a copiar del precio de lista vigente del plan, no del
-        // monto de la suscripción anterior: la decisión comercial es renovar a precio
-        // actual, así que subir el precio de lista sí cambia lo que paga quien renueva.
-        // Las suscripciones ya emitidas conservan su monto histórico.
-        var plan = planRepository.findByPlanIdAndEstado(actual.getPlanId(), Plan.EstadoPlan.ACTIVO.name())
-                .orElseThrow(() -> new BusinessException("El plan del restaurante no está activo, no se puede renovar"));
+        var ultima = suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(cmd.restauranteId());
+        Long planId = cmd.planId() != null ? cmd.planId() : ultima.map(s -> s.getPlanId()).orElse(null);
+        if (planId == null) throw new BusinessException("El plan es obligatorio para la primera suscripción");
+        var plan = planRepository.findByPlanIdAndEstado(planId, Plan.EstadoPlan.ACTIVO.name())
+                .orElseThrow(() -> new BusinessException("El plan no existe o no está activo"));
 
-        LocalDate today = LocalDate.now();
-        LocalDate fechaInicio = (actual.getFechaFin() != null && !actual.getFechaFin().isBefore(today))
-                ? actual.getFechaFin().plusDays(1)
-                : today;
+        LocalDate hoy = LocalDate.now();
+        LocalDate fechaInicio = ultima
+                .filter(s -> s.getFechaFin() != null && !s.getFechaFin().isBefore(hoy))
+                .map(s -> s.getFechaFin().plusDays(1))
+                .orElse(hoy);
         LocalDate fechaFin = fechaInicio.plusMonths(1);
 
         Suscripcion nueva = Suscripcion.crear(cmd.restauranteId(), plan.getPlanId(),
                 plan.getPrecioPlan(), Plan.MONEDA_PEN, fechaInicio, fechaFin);
         var saved = suscripcionRepository.save(suscripcionMapper.toEntity(nueva));
-        return new SuscripcionConPlan(suscripcionMapper.toDomain(saved), plan.getNombrePlan());
-    }
 
-    private void exigirPassword(String password) {
-        Long actorId = CurrentUser.getCurrentUser();
-        if (actorId == null) throw new UnauthorizedException("Sesión inválida");
-        var usuario = usuarioRepository.findById(actorId)
-                .orElseThrow(() -> new UnauthorizedException("Sesión inválida"));
-        if (!passwordEncoder.matches(password, usuario.getPasswordHash())) {
-            throw new UnauthorizedException("Credenciales inválidas");
+        if (restaurante.getEstado() == EstadoRestaurante.INACTIVO) {
+            restaurante.setEstado(EstadoRestaurante.ACTIVO);
+            restauranteRepository.save(restaurante);
+            eventPublisher.publish(new RestauranteEstadoCambiadoEvent(
+                    cmd.restauranteId(), EstadoRestaurante.INACTIVO, EstadoRestaurante.ACTIVO));
         }
+        return new SuscripcionConPlan(suscripcionMapper.toDomain(saved), plan.getNombrePlan());
     }
 }

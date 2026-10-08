@@ -37,20 +37,15 @@ public class AsignarRolRestauranteUseCase {
             throw new UnauthorizedException("Sesión inválida");
         }
 
-        var actorMembresia = usuarioRestauranteRepository.findById(actorId);
-        if (actorMembresia.isEmpty()
-                || !restauranteId.equals(actorMembresia.get().getRestauranteId())) {
+        if (usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(actorId, restauranteId).isEmpty()) {
             throw new ForbiddenException("Operación cross-tenant rechazada");
         }
         if (!RolNombreRestaurante.esAdministrador(CurrentUser.getRole())) {
             throw new ForbiddenException("Solo un ADMINISTRADOR puede reasignar roles");
         }
 
-        var objetivo = usuarioRestauranteRepository.findById(cmd.usuarioId())
+        var objetivo = usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(cmd.usuarioId(), restauranteId)
                 .orElseThrow(() -> new BusinessException("El usuario no pertenece a este restaurante"));
-        if (!restauranteId.equals(objetivo.getRestauranteId())) {
-            throw new ForbiddenException("Operación cross-tenant rechazada");
-        }
 
         var rolEntity = rolRepository.findById(cmd.nuevoRolId())
                 .orElseThrow(() -> new BusinessException("El rol no existe"));

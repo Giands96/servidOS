@@ -1,27 +1,25 @@
 package com.servidos.v1.tenant.application;
 
-import com.servidos.v1.identity.infrastructure.UsuarioJpaEntity;
-import com.servidos.v1.identity.infrastructure.UsuarioJpaRepository;
 import com.servidos.v1.shared.event.EventPublisher;
 import com.servidos.v1.shared.exception.BusinessException;
-import com.servidos.v1.shared.exception.UnauthorizedException;
-import com.servidos.v1.shared.security.CurrentUser;
 import com.servidos.v1.tenant.application.suscripcion.RenovarSuscripcionCommand;
 import com.servidos.v1.tenant.application.suscripcion.RenovarSuscripcionUseCase;
+import com.servidos.v1.tenant.domain.EstadoRestaurante;
 import com.servidos.v1.tenant.domain.Plan;
 import com.servidos.v1.tenant.domain.Suscripcion.EstadoSuscripcion;
+import com.servidos.v1.tenant.domain.event.RestauranteEstadoCambiadoEvent;
 import com.servidos.v1.tenant.infrastructure.jpa.PlanJpaEntity;
 import com.servidos.v1.tenant.infrastructure.jpa.PlanJpaRepository;
+import com.servidos.v1.tenant.infrastructure.jpa.RestauranteJpaEntity;
+import com.servidos.v1.tenant.infrastructure.jpa.RestauranteJpaRepository;
 import com.servidos.v1.tenant.infrastructure.jpa.SuscripcionJpaEntity;
 import com.servidos.v1.tenant.infrastructure.jpa.SuscripcionJpaRepository;
 import com.servidos.v1.tenant.infrastructure.mapper.SuscripcionMapper;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -39,148 +37,164 @@ class RenovarSuscripcionUseCaseTest {
 
     @Mock SuscripcionJpaRepository suscripcionRepository;
     @Mock PlanJpaRepository planRepository;
-    @Mock SuscripcionMapper suscripcionMapper;
-    @Mock UsuarioJpaRepository usuarioRepository;
-    @Mock PasswordEncoder passwordEncoder;
+    @Mock RestauranteJpaRepository restauranteRepository;
     @Mock EventPublisher eventPublisher;
 
-    @InjectMocks RenovarSuscripcionUseCase useCase;
+    RenovarSuscripcionUseCase useCase;
+    RestauranteJpaEntity restaurante;
 
-    @AfterEach
-    void limpiar() {
-        CurrentUser.clear();
+    @BeforeEach
+    void setUp() {
+        useCase = new RenovarSuscripcionUseCase(suscripcionRepository, planRepository, restauranteRepository,
+                new SuscripcionMapper(), eventPublisher);
+        restaurante = new RestauranteJpaEntity();
+        restaurante.setRestauranteId(7L);
+        restaurante.setEstado(EstadoRestaurante.ACTIVO);
     }
 
-    private SuscripcionJpaEntity actual(LocalDate fin) {
+    private void dadoRestaurante() {
+        when(restauranteRepository.findById(7L)).thenReturn(Optional.of(restaurante));
+    }
+
+    private void dadaUltima(EstadoSuscripcion estado, LocalDate fin) {
         var e = new SuscripcionJpaEntity();
-        e.setEstado(EstadoSuscripcion.ACTIVA);
+        e.setEstado(estado);
         e.setFechaFin(fin);
         e.setPlanId(3L);
-        return e;
+        when(suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(7L))
+                .thenReturn(Optional.of(e));
     }
 
-    private PlanJpaEntity planActivo(BigDecimal precio) {
+    private void dadoPlanActivo(Long planId, String precio) {
         var p = new PlanJpaEntity();
-        p.setPlanId(3L);
+        p.setPlanId(planId);
         p.setNombrePlan("Estándar");
-        p.setPrecioPlan(precio);
+        p.setPrecioPlan(new BigDecimal(precio));
         p.setEstado(Plan.EstadoPlan.ACTIVO.name());
-        return p;
+        when(planRepository.findByPlanIdAndEstado(planId, Plan.EstadoPlan.ACTIVO.name())).thenReturn(Optional.of(p));
     }
 
-    private void stubsPasswordOk() {
-        CurrentUser.setCurrentUser(42L);
-        var usuario = new UsuarioJpaEntity();
-        usuario.setPasswordHash("hash");
-        when(usuarioRepository.findById(42L)).thenReturn(Optional.of(usuario));
-        when(passwordEncoder.matches("secreto", "hash")).thenReturn(true);
-    }
-
-    private void stubMapperReal() {
+    private void guardarDevuelveLoMismo() {
         when(suscripcionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
-        when(suscripcionMapper.toEntity(any())).thenCallRealMethod();
-        when(suscripcionMapper.toDomain(any())).thenCallRealMethod();
     }
 
     @Test
-    void vigenteExtiendeUnMesExacto() {
-        stubsPasswordOk();
+    void vigenteQuedaProgramadaDesdeElDiaSiguienteASuFin() {
+        dadoRestaurante();
         var fin = LocalDate.now().plusDays(5);
-        when(suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(7L))
-                .thenReturn(Optional.of(actual(fin)));
-        when(planRepository.findByPlanIdAndEstado(3L, Plan.EstadoPlan.ACTIVO.name()))
-                .thenReturn(Optional.of(planActivo(new BigDecimal("34.90"))));
-        stubMapperReal();
+        dadaUltima(EstadoSuscripcion.ACTIVA, fin);
+        dadoPlanActivo(3L, "34.90");
+        guardarDevuelveLoMismo();
 
-        var renovada = useCase.ejecutar(new RenovarSuscripcionCommand(7L, "secreto")).suscripcion();
+        var renovada = useCase.ejecutar(new RenovarSuscripcionCommand(7L, null)).suscripcion();
 
         assertEquals(fin.plusDays(1), renovada.getFecha_inicio());
         assertEquals(fin.plusDays(1).plusMonths(1), renovada.getFecha_fin());
+        assertEquals(EstadoSuscripcion.ACTIVA, renovada.getEstado());
     }
 
     @Test
-    void sinSuscripcionFalla() {
-        stubsPasswordOk();
-        when(suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(7L))
-                .thenReturn(Optional.empty());
-        assertThrows(BusinessException.class, () ->
-                useCase.ejecutar(new RenovarSuscripcionCommand(7L, "secreto")));
-    }
+    void vencidaOCanceladaArrancaHoy() {
+        dadoRestaurante();
+        dadaUltima(EstadoSuscripcion.CANCELADA, LocalDate.now().minusDays(40));
+        dadoPlanActivo(3L, "34.90");
+        guardarDevuelveLoMismo();
 
-    @Test
-    void canceladaReactivaConNuevaActiva() {
-        stubsPasswordOk();
-        var e = actual(LocalDate.now().minusDays(40));
-        e.setEstado(EstadoSuscripcion.CANCELADA);
-        when(suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(7L))
-                .thenReturn(Optional.of(e));
-        when(planRepository.findByPlanIdAndEstado(3L, Plan.EstadoPlan.ACTIVO.name()))
-                .thenReturn(Optional.of(planActivo(new BigDecimal("34.90"))));
-        stubMapperReal();
+        var renovada = useCase.ejecutar(new RenovarSuscripcionCommand(7L, null)).suscripcion();
 
-        var reactivada = useCase.ejecutar(new RenovarSuscripcionCommand(7L, "secreto")).suscripcion();
-
-        assertEquals(EstadoSuscripcion.ACTIVA, reactivada.getEstado());
-        assertEquals(LocalDate.now(), reactivada.getFecha_inicio());
-        assertEquals(LocalDate.now().plusMonths(1), reactivada.getFecha_fin());
+        assertEquals(LocalDate.now(), renovada.getFecha_inicio());
+        assertEquals(LocalDate.now().plusMonths(1), renovada.getFecha_fin());
     }
 
     @Test
     void tomaElPrecioDeListaVigenteYNoElMontoAnterior() {
-        stubsPasswordOk();
-        var anterior = actual(LocalDate.now().minusDays(40));
-        anterior.setEstado(EstadoSuscripcion.CANCELADA);
-        anterior.setMonto(new BigDecimal("29.90"));
-        anterior.setMoneda("PEN");
+        dadoRestaurante();
+        dadaUltima(EstadoSuscripcion.ACTIVA, LocalDate.now().minusDays(40));
+        dadoPlanActivo(3L, "39.90");
+        guardarDevuelveLoMismo();
 
-        when(suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(7L))
-                .thenReturn(Optional.of(anterior));
-        when(planRepository.findByPlanIdAndEstado(3L, Plan.EstadoPlan.ACTIVO.name()))
-                .thenReturn(Optional.of(planActivo(new BigDecimal("39.90"))));
-        stubMapperReal();
-
-        var renovada = useCase.ejecutar(new RenovarSuscripcionCommand(7L, "secreto")).suscripcion();
+        var renovada = useCase.ejecutar(new RenovarSuscripcionCommand(7L, null)).suscripcion();
 
         assertEquals(0, new BigDecimal("39.90").compareTo(renovada.getMonto()));
         assertEquals("PEN", renovada.getMoneda());
     }
 
     @Test
-    void planInactivoImpideRenovar() {
-        stubsPasswordOk();
-        when(suscripcionRepository.findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(7L))
-                .thenReturn(Optional.of(actual(LocalDate.now().minusDays(40))));
-        when(planRepository.findByPlanIdAndEstado(3L, Plan.EstadoPlan.ACTIVO.name()))
-                .thenReturn(Optional.empty());
+    void puedeRenovarEnOtroPlan() {
+        dadoRestaurante();
+        dadaUltima(EstadoSuscripcion.ACTIVA, LocalDate.now().minusDays(1));
+        dadoPlanActivo(9L, "59.90");
+        guardarDevuelveLoMismo();
 
-        var ex = assertThrows(BusinessException.class, () ->
-                useCase.ejecutar(new RenovarSuscripcionCommand(7L, "secreto")));
-        assertEquals("El plan del restaurante no está activo, no se puede renovar", ex.getMessage());
-    }
+        var renovada = useCase.ejecutar(new RenovarSuscripcionCommand(7L, 9L)).suscripcion();
 
-    /**
-     * Renovar exige la contraseña del usuario en sesión: no puede ser un clic casual.
-     * Sin esto, un restaurante vencido se auto-devolvería el acceso sin haber pagado.
-     */
-    @Test
-    void sinPasswordFalla() {
-        var ex = assertThrows(BusinessException.class, () ->
-                useCase.ejecutar(new RenovarSuscripcionCommand(7L, null)));
-        assertEquals("La contraseña es obligatoria", ex.getMessage());
-        verify(suscripcionRepository, never())
-                .findTopByRestauranteIdOrderByCreatedAtDescSuscripcionIdDesc(any());
+        assertEquals(9L, renovada.getPlan_id());
     }
 
     @Test
-    void passwordIncorrectaNoRenueva() {
-        CurrentUser.setCurrentUser(42L);
-        var usuario = new UsuarioJpaEntity();
-        usuario.setPasswordHash("hash");
-        when(usuarioRepository.findById(42L)).thenReturn(Optional.of(usuario));
-        when(passwordEncoder.matches("otra", "hash")).thenReturn(false);
+    void sinSuscripcionPreviaCreaLaPrimeraConElPlanIndicado() {
+        dadoRestaurante();
+        dadoPlanActivo(3L, "34.90");
+        guardarDevuelveLoMismo();
 
-        assertThrows(UnauthorizedException.class, () ->
-                useCase.ejecutar(new RenovarSuscripcionCommand(7L, "otra")));
+        var primera = useCase.ejecutar(new RenovarSuscripcionCommand(7L, 3L)).suscripcion();
+
+        assertEquals(LocalDate.now(), primera.getFecha_inicio());
+        assertEquals(3L, primera.getPlan_id());
+    }
+
+    @Test
+    void sinSuscripcionPreviaNiPlanFalla() {
+        dadoRestaurante();
+
+        var ex = assertThrows(BusinessException.class,
+                () -> useCase.ejecutar(new RenovarSuscripcionCommand(7L, null)));
+        assertEquals("El plan es obligatorio para la primera suscripción", ex.getMessage());
         verify(suscripcionRepository, never()).save(any());
+    }
+
+    @Test
+    void restauranteInactivoQuedaActivo() {
+        restaurante.setEstado(EstadoRestaurante.INACTIVO);
+        dadoRestaurante();
+        dadaUltima(EstadoSuscripcion.ACTIVA, LocalDate.now().minusDays(10));
+        dadoPlanActivo(3L, "34.90");
+        guardarDevuelveLoMismo();
+
+        useCase.ejecutar(new RenovarSuscripcionCommand(7L, null));
+
+        assertEquals(EstadoRestaurante.ACTIVO, restaurante.getEstado());
+        verify(restauranteRepository).save(restaurante);
+        verify(eventPublisher).publish(any(RestauranteEstadoCambiadoEvent.class));
+    }
+
+    @Test
+    void restauranteActivoNoSeTocaNiPublicaEvento() {
+        dadoRestaurante();
+        dadaUltima(EstadoSuscripcion.ACTIVA, LocalDate.now().minusDays(10));
+        dadoPlanActivo(3L, "34.90");
+        guardarDevuelveLoMismo();
+
+        useCase.ejecutar(new RenovarSuscripcionCommand(7L, null));
+
+        verify(restauranteRepository, never()).save(any());
+        verify(eventPublisher, never()).publish(any());
+    }
+
+    @Test
+    void planInactivoImpideRenovar() {
+        dadoRestaurante();
+        dadaUltima(EstadoSuscripcion.ACTIVA, LocalDate.now().minusDays(40));
+        when(planRepository.findByPlanIdAndEstado(3L, Plan.EstadoPlan.ACTIVO.name())).thenReturn(Optional.empty());
+
+        var ex = assertThrows(BusinessException.class,
+                () -> useCase.ejecutar(new RenovarSuscripcionCommand(7L, null)));
+        assertEquals("El plan no existe o no está activo", ex.getMessage());
+        verify(suscripcionRepository, never()).save(any());
+    }
+
+    @Test
+    void restauranteInexistenteFalla() {
+        assertThrows(BusinessException.class, () -> useCase.ejecutar(new RenovarSuscripcionCommand(7L, 3L)));
     }
 }

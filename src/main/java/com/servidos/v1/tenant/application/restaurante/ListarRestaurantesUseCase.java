@@ -7,6 +7,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+
 @Service
 @RequiredArgsConstructor
 public class ListarRestaurantesUseCase {
@@ -15,6 +17,6 @@ public class ListarRestaurantesUseCase {
 
     @Transactional(readOnly = true)
     public Page<RestauranteConSuscripcion> listar(Pageable pageable) {
-        return restauranteRepository.listarConSuscripcionActual(pageable);
+        return restauranteRepository.listarConSuscripcionActual(LocalDate.now(), pageable);
     }
 }

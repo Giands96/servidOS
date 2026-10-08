@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import java.time.LocalDate;
 import java.util.Optional;
 
 @Repository
@@ -24,9 +25,9 @@ public interface RestauranteJpaRepository extends JpaRepository<RestauranteJpaEn
      * Dashboard de plataforma: una fila por restaurante con su suscripción actual
      * y el nombre del plan, en UNA sola consulta (2 JOIN, sin N+1).
      * <p>
-     * "Actual" = suscripción de mayor id (los ids son IDENTITY monótonos, así que
-     * es la última creada — mismo resultado que el
-     * {@code findTopBy...OrderByCreatedAtDescSuscripcionIdDesc} de {@code ObtenerRestauranteUseCase}).
+     * "Actual" = la de mayor id entre las que ya empezaron ({@code fecha_inicio <= hoy}),
+     * el mismo criterio que {@code SuscripcionJpaRepository}: una renovación programada
+     * no reemplaza a la vigente hasta su fecha de inicio.
      * Se usa el id y no {@code MAX(createdAt)} a propósito: el id es único, así el
      * JOIN es garantizado 1:1 por restaurante y la paginación nunca duplica ni
      * saltea filas (un empate en {@code createdAt} sí duplicaría la fila).
@@ -41,9 +42,9 @@ public interface RestauranteJpaRepository extends JpaRepository<RestauranteJpaEn
             FROM RestauranteJpaEntity r
             LEFT JOIN SuscripcionJpaEntity s ON s.restauranteId = r.restauranteId
                 AND s.suscripcionId = (SELECT MAX(s2.suscripcionId) FROM SuscripcionJpaEntity s2
-                    WHERE s2.restauranteId = r.restauranteId)
+                    WHERE s2.restauranteId = r.restauranteId AND s2.fechaInicio <= :hoy)
             LEFT JOIN PlanJpaEntity p ON p.planId = s.planId
             """,
             countQuery = "SELECT COUNT(r) FROM RestauranteJpaEntity r")
-    Page<RestauranteConSuscripcion> listarConSuscripcionActual(Pageable pageable);
+    Page<RestauranteConSuscripcion> listarConSuscripcionActual(LocalDate hoy, Pageable pageable);
 }

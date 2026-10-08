@@ -22,6 +22,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,6 +46,7 @@ class CrearPedidoUseCaseTest {
     void setUp() {
         useCase = new CrearPedidoUseCase(pedidoRepository, detalleRepository, productoCatalog,
                 new PedidoMapper(), new DetallePedidoMapper(), eventPublisher);
+        lenient().when(pedidoRepository.existsMesaEnRestaurante(3L, 10L)).thenReturn(true);
     }
 
     private static CrearPedidoCommand comando(Long productoId) {
@@ -66,9 +68,9 @@ class CrearPedidoUseCaseTest {
         when(productoCatalog.findInfoByIdAndRestaurante(7L, 10L))
                 .thenReturn(Optional.of(new ProductoCatalogInfo("Pizza Muzzarella", new BigDecimal("25.00"), true)));
 
-        var pedido = useCase.ejecutar(comando(7L), 10L);
+        var pedido = useCase.ejecutar(comando(7L), 10L, 5L);
 
-        assertEquals(new BigDecimal("50.00"), pedido.getTotal());
+        assertEquals(0, new BigDecimal("50.00").compareTo(pedido.getTotal()));
     }
 
     @Test
@@ -77,7 +79,7 @@ class CrearPedidoUseCaseTest {
         when(productoCatalog.findInfoByIdAndRestaurante(7L, 10L))
                 .thenReturn(Optional.of(new ProductoCatalogInfo("Pizza Muzzarella", new BigDecimal("25.00"), false)));
 
-        assertThrows(BusinessException.class, () -> useCase.ejecutar(comando(7L), 10L));
+        assertThrows(BusinessException.class, () -> useCase.ejecutar(comando(7L), 10L, 5L));
     }
 
     @Test
@@ -85,6 +87,44 @@ class CrearPedidoUseCaseTest {
         when(productoCatalog.findInfoByIdAndRestaurante(7L, 10L))
                 .thenReturn(Optional.empty());
 
-        assertThrows(BusinessException.class, () -> useCase.ejecutar(comando(7L), 10L));
+        assertThrows(BusinessException.class, () -> useCase.ejecutar(comando(7L), 10L, 5L));
+    }
+
+    @Test
+    void mesaDeOtroRestauranteDa400YNoGuarda() {
+        when(pedidoRepository.existsMesaEnRestaurante(3L, 99L)).thenReturn(false);
+
+        var ex = assertThrows(BusinessException.class, () -> useCase.ejecutar(comando(7L), 99L, 5L));
+
+        assertEquals("La mesa no existe", ex.getMessage());
+        org.mockito.Mockito.verify(pedidoRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void mesaSeValidaAunqueElPedidoNoSeaDeMesa() {
+        var cmd = new CrearPedidoCommand(TipoPedido.DELIVERY, 3L, null, "Juan",
+                List.of(new CrearPedidoItem(7L, 1, null)));
+        when(pedidoRepository.existsMesaEnRestaurante(3L, 99L)).thenReturn(false);
+
+        assertThrows(BusinessException.class, () -> useCase.ejecutar(cmd, 99L, 5L));
+    }
+
+    @Test
+    void sinUsuarioDa400YNoGuarda() {
+        var ex = assertThrows(BusinessException.class, () -> useCase.ejecutar(comando(7L), 10L, null));
+
+        assertEquals("Usuario no identificado", ex.getMessage());
+        org.mockito.Mockito.verify(pedidoRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void guardaQuienTomoElPedido() {
+        dadoPedidoGuardado();
+        when(productoCatalog.findInfoByIdAndRestaurante(7L, 10L))
+                .thenReturn(Optional.of(new ProductoCatalogInfo("Pizza Muzzarella", new BigDecimal("25.00"), true)));
+
+        var pedido = useCase.ejecutar(comando(7L), 10L, 5L);
+
+        assertEquals(5L, pedido.getUsuario_id());
     }
 }

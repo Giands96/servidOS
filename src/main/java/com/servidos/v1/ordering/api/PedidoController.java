@@ -10,6 +10,7 @@ import com.servidos.v1.ordering.application.pedido.CrearPedidoItem;
 import com.servidos.v1.ordering.application.pedido.CrearPedidoUseCase;
 import com.servidos.v1.ordering.domain.Pedido;
 import com.servidos.v1.shared.exception.ErrorResponse;
+import com.servidos.v1.shared.security.CurrentUser;
 import com.servidos.v1.shared.security.TenantContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -65,7 +66,7 @@ public class PedidoController {
                         request.items().stream()
                                 .map(i -> new CrearPedidoItem(i.productoId(), i.cantidad(), i.observacion()))
                                 .toList()),
-                TenantContext.getRestauranteId());
+                TenantContext.getRestauranteId(), CurrentUser.getCurrentUser());
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(creado));
     }
 

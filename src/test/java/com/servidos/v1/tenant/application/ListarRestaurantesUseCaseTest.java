@@ -15,6 +15,7 @@ import org.springframework.data.domain.PageRequest;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,11 +32,11 @@ class ListarRestaurantesUseCaseTest {
         var pageable = PageRequest.of(0, 10);
         var fila = new RestauranteConSuscripcion(1L, "demo", "Demo", null,
                 EstadoRestaurante.ACTIVO, null, null, null, null, null, null);
-        when(restauranteRepository.listarConSuscripcionActual(eq(pageable)))
+        when(restauranteRepository.listarConSuscripcionActual(any(), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(fila)));
         var page = useCase.listar(pageable);
         assertEquals(1, page.getTotalElements());
         assertEquals("demo", page.getContent().get(0).slug());
-        verify(restauranteRepository).listarConSuscripcionActual(eq(pageable));
+        verify(restauranteRepository).listarConSuscripcionActual(any(), eq(pageable));
     }
 }

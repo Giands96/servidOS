@@ -78,7 +78,8 @@ public class UsuarioController {
     }
 
     @PatchMapping("/{id}/rol")
-    @PreAuthorize("isAuthenticated()")
+    // MODERADOR queda afuera: con su rango no puede otorgar ningún rol de plataforma.
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','SUPERADMIN','ADMIN')")
     @Operation(summary = "Cambiar rol de un usuario",
             description = "Con sesión de restaurante delega a AsignarRolRestauranteUseCase "
                     + "(solo ADMINISTRADOR, nunca otorga ADMINISTRADOR, cross-tenant 403). "

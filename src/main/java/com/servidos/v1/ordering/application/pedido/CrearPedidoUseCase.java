@@ -33,12 +33,14 @@ public class CrearPedidoUseCase {
     private final EventPublisher eventPublisher;
 
     @Transactional
-    public Pedido ejecutar(CrearPedidoCommand cmd, Long restauranteId) {
+    public Pedido ejecutar(CrearPedidoCommand cmd, Long restauranteId, Long usuarioId) {
         if (restauranteId == null) throw new BusinessException("Restaurante no identificado");
+        // pedido.usuario_id es NOT NULL: registra quién tomó el pedido.
+        if (usuarioId == null) throw new BusinessException("Usuario no identificado");
         validar(cmd, restauranteId);
 
         Pedido pedidoDomain = Pedido.crear(restauranteId,
-                null,
+                usuarioId,
                 cmd.mesaId(),
                 cmd.tipoPedido(),
                 cmd.observacion(),
@@ -86,6 +88,9 @@ public class CrearPedidoUseCase {
         }
         if (cmd.tipoPedido() == TipoPedido.MESA && cmd.mesaId() == null) {
             throw new BusinessException("La mesa es obligatoria para pedidos en mesa");
+        }
+        if (cmd.mesaId() != null && !pedidoRepository.existsMesaEnRestaurante(cmd.mesaId(), restauranteId)) {
+            throw new BusinessException("La mesa no existe");
         }
     }
 }

@@ -58,8 +58,6 @@ class AsignarRolRestauranteTest {
 
     @Test
     void crossTenantEs403() {
-        when(usuarioRestauranteRepository.findById(1L))
-                .thenReturn(Optional.of(membresia(1L, 100L)));
 
         var ex = assertThrows(ForbiddenException.class, () ->
                 useCase.ejecutar(new AsignarRolRestauranteCommand(2L, 20L), 999L));
@@ -68,9 +66,9 @@ class AsignarRolRestauranteTest {
 
     @Test
     void administradorNoPuedeOtorgarAdministrador() {
-        when(usuarioRestauranteRepository.findById(1L))
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(1L, 100L))
                 .thenReturn(Optional.of(membresia(1L, 100L)));
-        when(usuarioRestauranteRepository.findById(2L))
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(2L, 100L))
                 .thenReturn(Optional.of(membresia(2L, 100L)));
         when(rolRepository.findById(20L))
                 .thenReturn(Optional.of(rol(20L, "ADMINISTRADOR", "ACTIVO")));
@@ -81,9 +79,9 @@ class AsignarRolRestauranteTest {
 
     @Test
     void rolInactivoSeRechaza() {
-        when(usuarioRestauranteRepository.findById(1L))
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(1L, 100L))
                 .thenReturn(Optional.of(membresia(1L, 100L)));
-        when(usuarioRestauranteRepository.findById(2L))
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(2L, 100L))
                 .thenReturn(Optional.of(membresia(2L, 100L)));
         when(rolRepository.findById(20L))
                 .thenReturn(Optional.of(rol(20L, "RECEPCION", "INACTIVO")));
@@ -95,9 +93,9 @@ class AsignarRolRestauranteTest {
     @Test
     void caminoFelizActualizaRol() {
         var objetivo = membresia(2L, 100L);
-        when(usuarioRestauranteRepository.findById(1L))
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(1L, 100L))
                 .thenReturn(Optional.of(membresia(1L, 100L)));
-        when(usuarioRestauranteRepository.findById(2L)).thenReturn(Optional.of(objetivo));
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(2L, 100L)).thenReturn(Optional.of(objetivo));
         when(rolRepository.findById(20L))
                 .thenReturn(Optional.of(rol(20L, "RECEPCION", "ACTIVO")));
 
@@ -105,5 +103,16 @@ class AsignarRolRestauranteTest {
 
         assertEquals(20L, objetivo.getRolRestauranteId());
         verify(usuarioRestauranteRepository).save(objetivo);
+    }
+
+    @Test
+    void objetivoDeOtroTenantEs400SinRevelarQueExiste() {
+        when(usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(1L, 100L))
+                .thenReturn(Optional.of(membresia(1L, 100L)));
+
+        var ex = assertThrows(BusinessException.class, () ->
+                useCase.ejecutar(new AsignarRolRestauranteCommand(2L, 20L), 100L));
+        assertEquals("El usuario no pertenece a este restaurante", ex.getMessage());
+        verify(usuarioRestauranteRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
     }
 }

@@ -73,7 +73,9 @@ public class RefreshTokenService {
 
     private String rolVigente(Long usuarioId, Long restauranteId) {
         if (restauranteId != null) {
-            var ur = usuarioRestauranteRepository.findById(usuarioId)
+            // Con el tenant en la query: si la membresía ya no es del restaurante que
+            // quedó guardado en el refresh, no se emite un access para ese tenant.
+            var ur = usuarioRestauranteRepository.findByUsuarioIdAndRestauranteId(usuarioId, restauranteId)
                     .orElseThrow(() -> new BusinessException("Refresh inválido"));
             if (ur.getEstado() != EstadoUsuario.ACTIVO) {
                 throw new BusinessException("Refresh inválido");
