@@ -5,6 +5,7 @@ import com.servidos.v1.ordering.domain.EstadoPedido;
 import com.servidos.v1.ordering.domain.Pedido;
 import com.servidos.v1.ordering.domain.TipoPedido;
 import com.servidos.v1.ordering.domain.event.PedidoCanceladoEvent;
+import com.servidos.v1.ordering.domain.event.PedidoEstadoCambiadoEvent;
 import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaEntity;
 import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaRepository;
 import com.servidos.v1.ordering.infrastructure.mapper.PedidoMapper;
@@ -36,8 +37,10 @@ public class CambiarEstadoPedidoUseCase {
         PedidoJpaEntity pedido = pedidoRepository.findByPedidoIdAndRestauranteId(pedidoId, restauranteId)
                 .orElseThrow(() -> new BusinessException("Pedido no encontrado"));
         validarTransicion(pedido, nuevoEstado);
+        EstadoPedido anterior = pedido.getEstado();
         pedido.setEstado(nuevoEstado);
         PedidoJpaEntity guardado = pedidoRepository.save(pedido);
+        eventPublisher.publish(new PedidoEstadoCambiadoEvent(pedidoId, restauranteId, anterior, nuevoEstado));
         if (nuevoEstado == EstadoPedido.CANCELADO) {
             eventPublisher.publish(new PedidoCanceladoEvent(pedidoId, restauranteId));
         }
