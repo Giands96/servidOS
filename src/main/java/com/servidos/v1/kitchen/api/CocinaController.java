@@ -3,6 +3,7 @@ package com.servidos.v1.kitchen.api;
 import com.servidos.v1.kitchen.api.dto.CocinaDetalleResponse;
 import com.servidos.v1.kitchen.api.dto.PreparacionPedidoResponse;
 import com.servidos.v1.kitchen.application.cocina.GestionarColaCocinaUseCase;
+import com.servidos.v1.kitchen.domain.PreparacionPedido;
 import com.servidos.v1.shared.exception.ErrorResponse;
 import com.servidos.v1.shared.security.TenantContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -44,23 +45,21 @@ public class CocinaController {
             @ApiResponse(responseCode = "403", description = "Sin permiso",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
     public ResponseEntity<List<PreparacionPedidoResponse>> cola() {
-        var cola = colaUseCase.listarEnPreparacion(TenantContext.getRestauranteId());
-        return ResponseEntity.ok(cola.stream().map(p -> new PreparacionPedidoResponse(
-                p.getPedido_id(),
-                p.getMesa_id(),
-                p.getTipoPedido(),
-                p.getEstado(),
-                p.getObservacion(),
-                p.getTotal(),
-                p.getCreated_at(),
-                p.getItems() == null ? List.of() : p.getItems().stream()
-                        .map(i -> new CocinaDetalleResponse(
-                                i.getDetalle_id(),
-                                i.getProducto_id(),
-                                i.getNombre_producto(),
-                                i.getCantidad(),
-                                i.getObservacion()))
-                        .toList())).toList());
+        return ResponseEntity.ok(toResponse(colaUseCase.listarEnPreparacion(TenantContext.getRestauranteId())));
+    }
+
+    @GetMapping("/listos")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION','COCINERO')")
+    @Operation(summary = "Listar pedidos listos",
+            description = "Pedidos ya preparados (LISTO) del tenant actual, pendientes de servir o despachar.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Pedidos listos"),
+            @ApiResponse(responseCode = "401", description = "Sin sesión",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Sin permiso",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
+    public ResponseEntity<List<PreparacionPedidoResponse>> listos() {
+        return ResponseEntity.ok(toResponse(colaUseCase.listarListos(TenantContext.getRestauranteId())));
     }
 
     @PostMapping("/pedidos/{id}/listo")
@@ -79,5 +78,24 @@ public class CocinaController {
             @Parameter(description = "ID del pedido", example = "1") @PathVariable Long id) {
         colaUseCase.marcarListo(id, TenantContext.getRestauranteId());
         return ResponseEntity.noContent().build();
+    }
+
+    private static List<PreparacionPedidoResponse> toResponse(List<PreparacionPedido> pedidos) {
+        return pedidos.stream().map(p -> new PreparacionPedidoResponse(
+                p.getPedido_id(),
+                p.getMesa_id(),
+                p.getTipoPedido(),
+                p.getEstado(),
+                p.getObservacion(),
+                p.getTotal(),
+                p.getCreated_at(),
+                p.getItems() == null ? List.of() : p.getItems().stream()
+                        .map(i -> new CocinaDetalleResponse(
+                                i.getDetalle_id(),
+                                i.getProducto_id(),
+                                i.getNombre_producto(),
+                                i.getCantidad(),
+                                i.getObservacion()))
+                        .toList())).toList();
     }
 }
