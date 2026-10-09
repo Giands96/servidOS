@@ -14,6 +14,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -24,6 +26,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -114,6 +117,20 @@ class RegistrarReembolsoUseCaseTest {
         dadoPago(pago(EstadoPago.REEMBOLSADO));
         assertThrows(BusinessException.class,
                 () -> useCase.ejecutar(new ReembolsarPagoCommand(5L, "Otra vez"), 10L));
+    }
+
+    /** Solo se reembolsa lo que se cobró: un pago PENDIENTE o CANCELADO no tiene plata que devolver. */
+    @ParameterizedTest
+    @EnumSource(value = EstadoPago.class, names = {"PENDIENTE", "CANCELADO"})
+    void pagoNoCobradoNoSeReembolsa(EstadoPago estado) {
+        dadoPago(pago(estado));
+
+        var ex = assertThrows(BusinessException.class,
+                () -> useCase.ejecutar(new ReembolsarPagoCommand(5L, "Cliente se fue"), 10L));
+
+        assertEquals("Solo un pago PAGADO puede reembolsarse", ex.getMessage());
+        verify(pagoRepository, never()).save(any());
+        verify(eventPublisher, never()).publish(any());
     }
 
     @Test

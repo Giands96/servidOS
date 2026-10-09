@@ -1,3 +1,4 @@
 package com.servidos.v1.tenant.application.suscripcion;
 
-public record CambiarPlanCommand(Long restauranteId, Long nuevoPlanId, Boolean confirmado, String password) {}
+/** Solo la plataforma cambia el plan: el cobro del plan nuevo se recibe fuera del sistema. */
+public record CambiarPlanCommand(Long restauranteId, Long nuevoPlanId) {}

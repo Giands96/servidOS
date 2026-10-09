@@ -4,6 +4,7 @@ import com.servidos.v1.ordering.api.dto.CambiarEstadoRequest;
 import com.servidos.v1.ordering.api.dto.CrearPedidoItemRequest;
 import com.servidos.v1.ordering.api.dto.CrearPedidoRequest;
 import com.servidos.v1.ordering.application.pedido.CambiarEstadoPedidoUseCase;
+import com.servidos.v1.ordering.application.pedido.ListarPedidosUseCase;
 import com.servidos.v1.ordering.application.pedido.ConfirmarPedidoUseCase;
 import com.servidos.v1.ordering.application.pedido.CrearPedidoUseCase;
 import com.servidos.v1.ordering.domain.EstadoPedido;
@@ -33,12 +34,14 @@ class PedidoControllerTest {
     @Mock CrearPedidoUseCase crearPedidoUseCase;
     @Mock ConfirmarPedidoUseCase confirmarPedidoUseCase;
     @Mock CambiarEstadoPedidoUseCase cambiarEstadoPedidoUseCase;
+    @Mock ListarPedidosUseCase listarPedidosUseCase;
 
     PedidoController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new PedidoController(crearPedidoUseCase, confirmarPedidoUseCase, cambiarEstadoPedidoUseCase);
+        controller = new PedidoController(crearPedidoUseCase, confirmarPedidoUseCase, cambiarEstadoPedidoUseCase,
+                listarPedidosUseCase);
         TenantContext.setRestauranteId(100L);
     }
 
@@ -85,5 +88,22 @@ class PedidoControllerTest {
 
         assertEquals(HttpStatus.OK, resp.getStatusCode());
         assertEquals(EstadoPedido.LISTO, resp.getBody().estado());
+    }
+
+    @Test
+    void listarUsaElTenantDelJwtYDevuelveElEstadoDePago() {
+        var pedido = com.servidos.v1.ordering.domain.Pedido.builder()
+                .pedido_id(7L).tipoPedido(com.servidos.v1.ordering.domain.TipoPedido.RECOJO)
+                .estado(com.servidos.v1.ordering.domain.EstadoPedido.ENTREGADO)
+                .total(new java.math.BigDecimal("10.00")).build();
+        when(listarPedidosUseCase.listar(100L, null, null, true, 0, 20)).thenReturn(
+                new org.springframework.data.domain.PageImpl<>(
+                        java.util.List.of(new ListarPedidosUseCase.PedidoListado(pedido, "PAGADO"))));
+
+        var resp = controller.listar(null, null, true, 0, 20);
+
+        var fila = resp.getBody().getContent().get(0);
+        assertEquals(7L, fila.pedidoId());
+        assertEquals("PAGADO", fila.estadoPago());
     }
 }

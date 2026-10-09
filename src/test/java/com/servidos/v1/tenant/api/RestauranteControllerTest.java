@@ -107,7 +107,7 @@ class RestauranteControllerTest {
     @Test
     void cambiarPlanDelegaYDa200() {
         when(cambiarPlanUseCase.ejecutar(any())).thenReturn(suscripcionConPlan(2L, 4L, "Estándar", 30));
-        var resp = controller.cambiarPlan(new CambiarPlanRequest(4L, true, "secreto"));
+        var resp = controller.cambiarPlan(2L, new CambiarPlanRequest(4L));
         assertEquals(HttpStatus.OK, resp.getStatusCode());
         assertEquals(4L, resp.getBody().planId());
         assertEquals("Estándar", resp.getBody().nombrePlan());

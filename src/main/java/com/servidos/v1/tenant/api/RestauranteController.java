@@ -147,15 +147,15 @@ public class RestauranteController {
         return ResponseEntity.ok(toResponse(obtenerRestauranteUseCase.obtenerSuscripcion(id)));
     }
 
-    @PatchMapping("/actual/plan")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','SUPERADMIN')")
-    @Operation(summary = "Cambiar el plan del restaurante actual",
-            description = "Cierra la suscripción ACTIVA y abre una nueva de 30 días con el plan elegido. Requiere confirmación explícita y la contraseña del usuario en sesión.")
+    @PatchMapping("/{id}/plan")
+    @PreAuthorize("hasRole('SUPERADMIN')")
+    @Operation(summary = "Cambiar el plan de un restaurante (plataforma)",
+            description = "La plataforma aplica el cambio cuando recibe el pago. Cancela la suscripción "
+                    + "actual y las programadas, y abre una nueva de un mes con el plan elegido desde hoy.")
     @ApiResponse(responseCode = "200", description = "Nueva suscripción")
-    public ResponseEntity<SuscripcionResponse> cambiarPlan(@Valid @RequestBody CambiarPlanRequest request) {
-        var nueva = cambiarPlanUseCase.ejecutar(new CambiarPlanCommand(
-                TenantContext.getRestauranteId(), request.nuevoPlanId(),
-                request.confirmado(), request.password()));
+    public ResponseEntity<SuscripcionResponse> cambiarPlan(@PathVariable Long id,
+                                                           @Valid @RequestBody CambiarPlanRequest request) {
+        var nueva = cambiarPlanUseCase.ejecutar(new CambiarPlanCommand(id, request.nuevoPlanId()));
         return ResponseEntity.ok(toResponse(nueva));
     }
 
@@ -174,7 +174,7 @@ public class RestauranteController {
     }
 
     @PostMapping("/actual/suscripcion/cancelar")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','SUPERADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     @Operation(summary = "Cancelar la suscripción actual",
             description = "Cancelar es no renovar: el restaurante opera hasta la fecha_fin de la "
                     + "suscripción actual y las renovaciones programadas se cancelan. Exige la contraseña "
