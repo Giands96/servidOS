@@ -25,5 +25,7 @@ public class PreparacionPedido {
     private String observacion;
     private BigDecimal total;
     private LocalDateTime created_at;
+    /** Null mientras está en preparación. */
+    private LocalDateTime listo_at;
     private List<DetallePedido> items;
 }

@@ -58,6 +58,7 @@ public class GestionarColaCocinaUseCase {
                     .observacion(pedido.getObservacion())
                     .total(pedido.getTotal())
                     .created_at(pedido.getCreatedAt())
+                    .listo_at(pedido.getListoAt())
                     .items(items)
                     .build();
         }).toList();
