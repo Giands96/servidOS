@@ -52,6 +52,8 @@ Content-Type: application/json
 
 ## 2. Cancelar la suscripción exige la contraseña ❌
 
+> Esto es solo para la **suscripción**. Cancelar un **pedido** no pide contraseña ni autorización del administrador (ver §7).
+
 ```http
 POST /api/v1/restaurantes/actual/suscripcion/cancelar
 Content-Type: application/json
@@ -114,12 +116,18 @@ Crear pedidos, tocar el catálogo, gestionar usuarios, etc. siguen dando 402.
 - Si el pedido **no** estaba ENTREGADO, queda CANCELADO automáticamente.
 - Si estaba ENTREGADO, no cambia.
 - Un pedido reembolsado **no se puede volver a cobrar**: `POST /pagos` responde 400 "El pedido fue reembolsado, no se puede volver a cobrar".
+- **Solo se reembolsa un pago PAGADO.** Un pedido sin cobrar no tiene pago que devolver. Si el pago está PENDIENTE, CANCELADO o ya REEMBOLSADO, responde 400 "Solo un pago PAGADO puede reembolsarse". Mostrar "Reembolsar" solo si el pedido tiene un pago PAGADO.
 
 **Qué tocar:**
 - Después de reembolsar, volver a pedir el pedido o actualizar su estado en la vista.
 - Ocultar "Cobrar" en los pedidos reembolsados.
 
 ## 7. Cambios en las transiciones de estado del pedido ✅
+
+**Cancelar un pedido:** `PATCH /pedidos/{id}/estado` con `{"estado": "CANCELADO"}`.
+
+- Lo puede hacer ADMINISTRADOR o RECEPCION directamente, **sin contraseña ni aprobación del administrador**.
+- La única condición es que el pedido **no esté pagado**. Si ya está pagado, responde 400 "El pedido pagado no puede cancelarse": el camino es reembolsar el pago, y el reembolso lo cancela (§6).
 
 - **Delivery EN_ENTREGA → CANCELADO:** ahora se permite si el pedido **no está pagado**. Si está pagado, responde 400.
 - **ENTREGADO sin pago:** se permite (cobro posterior). No cambia, pero queda confirmado como regla.

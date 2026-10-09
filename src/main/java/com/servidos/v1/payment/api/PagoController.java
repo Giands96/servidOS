@@ -67,7 +67,7 @@ public class PagoController {
     @PostMapping("/{id}/reembolso")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION')")
     @Operation(summary = "Reembolsar pago total",
-            description = "ADMINISTRADOR o RECEPCION con motivo obligatorio. Queda auditado quién (usuario del JWT) y por qué. El pedido reembolsado vuelve a ser cancelable.")
+            description = "ADMINISTRADOR o RECEPCION con motivo obligatorio. Queda auditado quién (usuario del JWT) y por qué. Solo un pago PAGADO se reembolsa. Si el pedido no fue entregado queda CANCELADO, y no se puede volver a cobrar.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Pago reembolsado",
                     content = @Content(schema = @Schema(implementation = PagoResponse.class))),
