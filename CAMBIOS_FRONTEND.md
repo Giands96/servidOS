@@ -1,6 +1,6 @@
 # Cambios del backend para el frontend
 
-Fecha: 2026-10-08. Incluye lo mergeado en [Giands96/servidOS#12](https://github.com/Giands96/servidOS/pull/12) y lo nuevo de la rama `claude/optimistic-ramanujan-hfasob`, que todavía no está en `main`.
+Fecha: 2026-10-08, actualizado el 2026-10-09. Incluye lo mergeado en [Giands96/servidOS#12](https://github.com/Giands96/servidOS/pull/12) y lo nuevo de la rama `claude/optimistic-ramanujan-hfasob`, que todavía no está en `main`.
 
 Base de la API: `/api/v1`. Los formatos de error no cambian: siguen siendo `ErrorResponse`, con `status`, `message` y `path`.
 
@@ -19,6 +19,10 @@ Base de la API: `/api/v1`. Los formatos de error no cambian: siguen siendo `Erro
 | 9 | `POST /pedidos` ya funciona contra la base real | 🐛 Arreglo | Ninguno |
 | 10 | Nuevo `GET /cocina/listos` | ✅ Nuevo | Columna "Listos" de cocina |
 | 11 | WebSocket del tablero de cocina | ✅ Nuevo | Tablero en vivo |
+| 12 | Nuevo `GET /pedidos` (listado con filtros) | ✅ Nuevo | Caja (por cobrar), recepción, historial |
+| 13 | RECEPCION y CAJERO pueden cobrar | ⚠️ Cambian los permisos | `permissions.rules.ts` → `pagos.registrar` |
+| 14 | El cambio de plan pasa a la plataforma | ❌ Rompe | Quitar el cambio de plan del tenant |
+| 15 | Fechas en hora de Lima | ⚠️ Aclaración | Mostrar `createdAt` sin convertir |
 
 ---
 
@@ -63,6 +67,7 @@ Content-Type: application/json
 
 - Sin body o con `password` vacío responde 400 (validación).
 - Con la contraseña incorrecta también responde 400.
+- Solo lo puede hacer el **ADMINISTRADOR** del restaurante (antes también aceptaba SUPERADMIN, que no tiene restaurante y siempre recibía 400).
 - Cancelar significa "no renovar": **el restaurante sigue operando hasta `fechaFin`**. También se cancelan las renovaciones ya programadas.
 
 **Qué tocar:** pedir la contraseña en un modal de confirmación antes de cancelar.
@@ -237,6 +242,88 @@ stomp.watch(`/topic/restaurantes/${restauranteId}/cocina`)
 
   La alternativa es conectarse directo a `ws://localhost:8080/ws`, que ya acepta el origen `http://localhost:4200`.
 
+## 12. Nuevo `GET /pedidos` ✅
+
+```http
+GET /api/v1/pedidos?estado=ENTREGADO&fecha=2026-10-09&porCobrar=false&page=0&size=20
+Roles: ADMINISTRADOR, RECEPCION, CAJERO
+```
+
+| Parámetro | Default | Qué hace |
+|---|---|---|
+| `estado` | todos | Solo pedidos en ese estado |
+| `fecha` | todas | Solo pedidos creados ese día (`yyyy-MM-dd`, hora de Lima) |
+| `porCobrar` | `false` | `true`: solo pedidos **no cancelados que nunca se cobraron**. Excluye los pagados y los reembolsados (un reembolsado no se vuelve a cobrar) |
+| `page`, `size` | `0`, `20` | Paginado; `size` entre 1 y 100 (fuera de rango: 400) |
+
+- Siempre ordena del más nuevo al más viejo; no acepta `sort`.
+- Solo trae pedidos del restaurante del token.
+- Responde un `Page` de Spring, igual que `GET /productos`: `content`, `totalElements`, `totalPages`, `number`, `size`, etc.
+
+```json
+{
+  "content": [
+    {
+      "pedidoId": 20,
+      "tipoPedido": "MESA",
+      "mesaId": 3,
+      "estado": "ENTREGADO",
+      "total": 50.00,
+      "observacion": null,
+      "createdAt": "2026-10-09T12:30:00",
+      "estadoPago": "PAGADO"
+    }
+  ],
+  "totalElements": 1,
+  "totalPages": 1,
+  "number": 0,
+  "size": 20
+}
+```
+
+`estadoPago` vale `PAGADO`, `REEMBOLSADO` o `null` (sin pago).
+
+Usos típicos:
+- **Caja:** `?porCobrar=true`.
+- **Historial del día:** `?fecha=<hoy>`.
+- **Botones según el pago:** "Cobrar" si `estadoPago` es null y el pedido no está CANCELADO; "Reembolsar" solo si es `PAGADO` (§6).
+
+## 13. RECEPCION y CAJERO pueden cobrar ⚠️
+
+`POST /pagos` ahora acepta **ADMINISTRADOR, RECEPCION y CAJERO** (antes solo ADMINISTRADOR). El reembolso sigue siendo ADMINISTRADOR y RECEPCION.
+
+**Qué tocar:**
+- `core/auth/domain/permissions.rules.ts`: `'pagos.registrar': ['ADMINISTRADOR', 'RECEPCION', 'CAJERO']`.
+- Con eso, RECEPCION y CAJERO ven `/caja`, que se resuelve con la ruta que ya exige `pagos.registrar`. Eso cierra la deuda "RECEPCION puede reembolsar pero no ve caja".
+
+## 14. El cambio de plan pasa a la plataforma ❌
+
+- **Se elimina:** `PATCH /restaurantes/actual/plan`. Ahora responde 404.
+- **Nuevo, solo para SUPERADMIN:** `PATCH /restaurantes/{id}/plan`
+
+El restaurante pide el cambio por fuera; la plataforma lo aplica cuando recibe el pago, igual que la renovación.
+
+```http
+PATCH /api/v1/restaurantes/{id}/plan
+Authorization: Bearer <token SUPERADMIN>
+Content-Type: application/json
+
+{ "nuevoPlanId": 4 }
+```
+
+- Ya no lleva `confirmado` ni `password`; la confirmación la pide el panel de plataforma.
+- Cancela la suscripción actual y las programadas, y crea una nueva desde hoy por **un mes** (antes eran 30 días), al precio del plan.
+- Responde 200 con `SuscripcionResponse`.
+
+**Qué tocar:** quitar el formulario de cambio de plan del ADMINISTRADOR (la "doble confirmación con contraseña" de la fase Restaurante). En su lugar, mostrar el plan actual y un texto para contactar a la plataforma. El cambio va al dashboard de SUPERADMIN (fase Plataforma).
+
+## 15. Fechas en hora de Lima ⚠️
+
+El backend corre en `America/Lima`. Las fechas sin zona (`createdAt`, `fechaInicio`, `fechaFin`, por ejemplo `"2026-10-09T12:30:00"`) **ya están en hora de Lima**.
+
+- Mostrarlas tal cual (hora local del restaurante). **No** agregarles `Z` ni tratarlas como UTC: se correrían 5 horas.
+- "Hoy" (vencimiento de la suscripción, filtro `fecha`) también es el día de Lima.
+
 ---
 
 ## Checklist para el front
@@ -250,3 +337,7 @@ stomp.watch(`/topic/restaurantes/${restauranteId}/cocina`)
 - [ ] Columna de listos con `GET /cocina/listos` (§10).
 - [ ] Tablero en vivo con STOMP y resincronización al reconectar (§11).
 - [ ] Proxy de `/ws` en `proxy.conf.json` (§11).
+- [ ] Caja con `GET /pedidos?porCobrar=true` e historial con `?fecha=` (§12).
+- [ ] `pagos.registrar` para ADMINISTRADOR, RECEPCION y CAJERO (§13).
+- [ ] Quitar el cambio de plan del tenant; llevarlo al panel de plataforma (§14).
+- [ ] Mostrar las fechas sin convertir zona (§15).
