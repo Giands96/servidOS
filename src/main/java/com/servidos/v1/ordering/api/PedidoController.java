@@ -1,5 +1,13 @@
 package com.servidos.v1.ordering.api;
 
+import com.servidos.v1.ordering.api.dto.PedidoListadoResponse;
+import com.servidos.v1.ordering.application.pedido.ListarPedidosUseCase;
+import com.servidos.v1.ordering.domain.EstadoPedido;
+import io.swagger.v3.oas.annotations.Parameter;
+import org.springframework.data.domain.Page;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import java.time.LocalDate;
 import com.servidos.v1.ordering.api.dto.CambiarEstadoRequest;
 import com.servidos.v1.ordering.api.dto.CrearPedidoRequest;
 import com.servidos.v1.ordering.api.dto.PedidoResponse;
@@ -42,6 +50,36 @@ public class PedidoController {
     private final CrearPedidoUseCase crearPedidoUseCase;
     private final ConfirmarPedidoUseCase confirmarPedidoUseCase;
     private final CambiarEstadoPedidoUseCase cambiarEstadoPedidoUseCase;
+    private final ListarPedidosUseCase listarPedidosUseCase;
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION','CAJERO')")
+    @Operation(summary = "Listar pedidos del restaurante actual",
+            description = "Del más nuevo al más viejo, paginado (`?page=&size=`, default `size=20`, máximo 100; "
+                    + "el orden es fijo). Filtros opcionales: `estado`, `fecha` (día de creación, hora de Lima) y "
+                    + "`porCobrar=true` (no cancelados y sin pago). Cada pedido trae `estadoPago`.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Página de pedidos del tenant"),
+            @ApiResponse(responseCode = "400", description = "Página o tamaño inválidos",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Sin sesión",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Sin permiso",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
+    public ResponseEntity<Page<PedidoListadoResponse>> listar(
+            @Parameter(description = "Solo pedidos en este estado") @RequestParam(required = false) EstadoPedido estado,
+            @Parameter(description = "Día de creación (yyyy-MM-dd)", example = "2026-10-09")
+            @RequestParam(required = false) LocalDate fecha,
+            @Parameter(description = "Solo pedidos no cancelados que nunca se cobraron")
+            @RequestParam(defaultValue = "false") boolean porCobrar,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        var pagina = listarPedidosUseCase.listar(TenantContext.getRestauranteId(), estado, fecha, porCobrar, page, size);
+        return ResponseEntity.ok(pagina.map(l -> new PedidoListadoResponse(
+                l.pedido().getPedido_id(), l.pedido().getTipoPedido(), l.pedido().getMesa_id(),
+                l.pedido().getEstado(), l.pedido().getTotal(), l.pedido().getObservacion(),
+                l.pedido().getCreated_at(), l.estadoPago())));
+    }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION')")
