@@ -8,11 +8,21 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 
+import java.util.TimeZone;
+
 @SpringBootApplication
 @EnableConfigurationProperties(AuthProperties.class)
 public class V1Application {
 
+	/**
+	 * Hora del negocio. Las fechas se guardan como LocalDate/LocalDateTime sin zona
+	 * (created_at, vigencia de suscripciones), así que "hoy" y "ahora" tienen que ser los
+	 * de Perú y no los del servidor donde corra. Los tests usan la misma zona (pom, surefire).
+	 */
+	public static final String ZONA_HORARIA = "America/Lima";
+
 	public static void main(String[] args) {
+		TimeZone.setDefault(TimeZone.getTimeZone(ZONA_HORARIA));
 		SpringApplication.run(V1Application.class, args);
 	}
 

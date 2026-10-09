@@ -41,7 +41,7 @@ public class PagoController {
     private final RegistrarReembolsoUseCase registrarReembolsoUseCase;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION','CAJERO')")
     @Operation(summary = "Registrar pago del pedido en el restaurante actual",
             description = "El restauranteId y el cajero se toman del JWT, nunca del JSON. Monto anti-tamper desde DB; vuelto solo en efectivo.")
     @ApiResponses({
