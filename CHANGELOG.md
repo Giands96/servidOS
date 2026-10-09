@@ -4,7 +4,7 @@ Cambios relevantes del proyecto, del más reciente al más antiguo.
 
 ## 2026-10-09: tablero de cocina en vivo, listado de pedidos y limpieza de permisos
 
-PR: pendiente (rama `claude/optimistic-ramanujan-hfasob`)
+PR: [Giands96/servidOS#15](https://github.com/Giands96/servidOS/pull/15)
 
 ### Resumen
 
