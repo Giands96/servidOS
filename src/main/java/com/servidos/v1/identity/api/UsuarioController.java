@@ -83,16 +83,15 @@ public class UsuarioController {
     }
 
     @PostMapping("/plataforma")
-    @PreAuthorize("hasRole('SUPERADMIN')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     @Operation(summary = "Registrar usuario de plataforma (ADMIN o MODERADOR)",
-            description = "Solo SUPERADMIN. ADMIN es un socio que opera los restaurantes; MODERADOR "
-                    + "consulta restaurantes y renueva suscripciones. No se puede crear otro SUPERADMIN.")
+            description = "SUPERADMIN crea ADMIN o MODERADOR; ADMIN solo MODERADOR. No se puede crear un SUPERADMIN.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Usuario creado",
                     content = @Content(schema = @Schema(implementation = UsuarioPlataformaResponse.class))),
             @ApiResponse(responseCode = "400", description = "Datos inválidos o rol inexistente/inactivo",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "403", description = "No es SUPERADMIN o el rol es SUPERADMIN",
+            @ApiResponse(responseCode = "403", description = "Rol igual o superior al del actor",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "El email ya existe",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
@@ -107,12 +106,12 @@ public class UsuarioController {
     }
 
     @PatchMapping("/{id}/rol")
-    // En plataforma solo SUPERADMIN asigna roles (ADMIN y MODERADOR no nombran a nadie).
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','SUPERADMIN')")
+    // En plataforma cada rol gestiona solo roles menores al suyo; MODERADOR no gestiona a nadie.
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','SUPERADMIN','ADMIN')")
     @Operation(summary = "Cambiar rol de un usuario",
             description = "Con sesión de restaurante delega a AsignarRolRestauranteUseCase "
                     + "(solo ADMINISTRADOR, nunca otorga ADMINISTRADOR, cross-tenant 403). "
-                    + "Con sesión de plataforma delega a AsignarRolPlataformaUseCase: solo SUPERADMIN, otorga ADMIN o MODERADOR.")
+                    + "Con sesión de plataforma delega a AsignarRolPlataformaUseCase: SUPERADMIN otorga ADMIN o MODERADOR; ADMIN solo MODERADOR.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Rol actualizado"),
             @ApiResponse(responseCode = "400", description = "Rol inexistente/inactivo o comando inválido",

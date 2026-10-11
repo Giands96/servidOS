@@ -54,27 +54,20 @@ public class AsignarRolPlataformaUseCase {
         usuarioPlataformaRepository.save(objetivo);
     }
 
-    /**
-     * Solo SUPERADMIN gestiona usuarios de plataforma (ADMIN es un socio con las mismas
-     * operaciones sobre restaurantes, pero no nombra a otros). Nunca se otorga SUPERADMIN
-     * ni se le cambia el rol a uno.
-     */
+    /** Ver {@link RolNombrePlataforma#puedeGestionar}: vale para el rol nuevo y para el actual. */
     private void exigirJerarquia(String nombreRolObjetivo, Long rolActualObjetivoId) {
         String rolActor = CurrentUser.getRole();
         if (rolActor == null) {
             throw new UnauthorizedException("Sesión inválida");
         }
-        if (!RolNombrePlataforma.esSuperadmin(rolActor)) {
-            throw new ForbiddenException("Solo un SUPERADMIN puede asignar roles de plataforma");
+        if (!RolNombrePlataforma.puedeGestionar(rolActor, nombreRolObjetivo)) {
+            throw new ForbiddenException("No puedes otorgar un rol igual o superior al tuyo");
         }
-        if (!RolNombrePlataforma.esOtorgable(nombreRolObjetivo)) {
-            throw new ForbiddenException("No se puede otorgar el rol SUPERADMIN");
-        }
-        boolean objetivoEsSuperadmin = rolRepository.findById(rolActualObjetivoId)
-                .map(r -> RolNombrePlataforma.esSuperadmin(r.getNombre()))
-                .orElse(false);
-        if (objetivoEsSuperadmin) {
-            throw new ForbiddenException("No se puede cambiar el rol de un SUPERADMIN");
+        String rolActual = rolRepository.findById(rolActualObjetivoId)
+                .map(r -> r.getNombre())
+                .orElse(null);
+        if (!RolNombrePlataforma.puedeGestionar(rolActor, rolActual)) {
+            throw new ForbiddenException("No puedes cambiar el rol de un usuario con un rol igual o superior al tuyo");
         }
     }
 }

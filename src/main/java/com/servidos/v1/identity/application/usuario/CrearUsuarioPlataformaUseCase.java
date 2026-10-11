@@ -21,8 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Alta de un usuario de plataforma (ADMIN o MODERADOR). Solo SUPERADMIN: un ADMIN es un
- * socio que opera los restaurantes, pero no nombra a otros.
+ * Alta de un usuario de plataforma. SUPERADMIN crea ADMIN o MODERADOR; ADMIN (socio)
+ * solo MODERADOR. Nadie crea un SUPERADMIN.
  */
 @Service
 @RequiredArgsConstructor
@@ -41,9 +41,8 @@ public class CrearUsuarioPlataformaUseCase {
         if (actorId == null || CurrentUser.getRole() == null) {
             throw new UnauthorizedException("Sesión inválida");
         }
-        if (!RolNombrePlataforma.esSuperadmin(CurrentUser.getRole())
-                || usuarioPlataformaRepository.findById(actorId).isEmpty()) {
-            throw new ForbiddenException("Solo un SUPERADMIN puede crear usuarios de plataforma");
+        if (usuarioPlataformaRepository.findById(actorId).isEmpty()) {
+            throw new ForbiddenException("Operación no disponible para sesiones de restaurante");
         }
 
         var rol = rolRepository.findById(cmd.rolPlataformaId())
@@ -51,8 +50,8 @@ public class CrearUsuarioPlataformaUseCase {
         if (!"ACTIVO".equalsIgnoreCase(rol.getEstado())) {
             throw new BusinessException("El rol no está activo");
         }
-        if (!RolNombrePlataforma.esOtorgable(rol.getNombre())) {
-            throw new ForbiddenException("Solo se pueden crear usuarios ADMIN o MODERADOR");
+        if (!RolNombrePlataforma.puedeGestionar(CurrentUser.getRole(), rol.getNombre())) {
+            throw new ForbiddenException("No puedes crear un usuario con un rol igual o superior al tuyo");
         }
 
         String email = cmd.email().trim().toLowerCase();

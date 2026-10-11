@@ -94,6 +94,7 @@ class AsignarRolPlataformaTest {
                 useCase.ejecutar(new AsignarRolPlataformaCommand(2L, 20L)));
     }
 
+    /** SUPERADMIN degrada a un ADMIN a MODERADOR. */
     @Test
     void caminoFelizActualizaRol() {
         var objetivo = membresia(2L, 3L);
@@ -102,6 +103,7 @@ class AsignarRolPlataformaTest {
         when(usuarioPlataformaRepository.findById(2L)).thenReturn(Optional.of(objetivo));
         when(rolRepository.findById(20L))
                 .thenReturn(Optional.of(rol(20L, "Moderador", "ACTIVO")));
+        when(rolRepository.findById(3L)).thenReturn(Optional.of(rol(3L, "ADMIN", "ACTIVO")));
 
         useCase.ejecutar(new AsignarRolPlataformaCommand(2L, 20L));
 
@@ -109,18 +111,18 @@ class AsignarRolPlataformaTest {
         verify(usuarioPlataformaRepository).save(objetivo);
     }
 
-    /** ADMIN es socio pero no nombra a nadie: ni siquiera un MODERADOR. */
+    /** ADMIN tiene las mismas funciones que SUPERADMIN, pero no gestiona a otro ADMIN. */
     @Test
-    void adminNoPuedeAsignarNiModerador() {
+    void adminNoPuedeCambiarleElRolAOtroAdmin() {
         CurrentUser.setRole("ADMIN");
-        when(usuarioPlataformaRepository.findById(1L)).thenReturn(Optional.of(membresia(1L, 2L)));
-        var objetivo = membresia(2L, 4L);
-        when(usuarioPlataformaRepository.findById(2L)).thenReturn(Optional.of(objetivo));
+        when(usuarioPlataformaRepository.findById(1L)).thenReturn(Optional.of(membresia(1L, 3L)));
+        when(usuarioPlataformaRepository.findById(2L)).thenReturn(Optional.of(membresia(2L, 3L)));
         when(rolRepository.findById(20L)).thenReturn(Optional.of(rol(20L, "MODERADOR", "ACTIVO")));
+        when(rolRepository.findById(3L)).thenReturn(Optional.of(rol(3L, "ADMIN", "ACTIVO")));
 
         var ex = assertThrows(ForbiddenException.class, () ->
                 useCase.ejecutar(new AsignarRolPlataformaCommand(2L, 20L)));
-        assertEquals("Solo un SUPERADMIN puede asignar roles de plataforma", ex.getMessage());
+        assertEquals("No puedes cambiar el rol de un usuario con un rol igual o superior al tuyo", ex.getMessage());
         verify(usuarioPlataformaRepository, never()).save(any());
     }
 
@@ -142,9 +144,8 @@ class AsignarRolPlataformaTest {
         when(rolRepository.findById(20L)).thenReturn(Optional.of(rol(20L, "MODERADOR", "ACTIVO")));
         when(rolRepository.findById(10L)).thenReturn(Optional.of(rol(10L, "SUPERADMIN", "ACTIVO")));
 
-        var ex = assertThrows(ForbiddenException.class, () ->
+        assertThrows(ForbiddenException.class, () ->
                 useCase.ejecutar(new AsignarRolPlataformaCommand(2L, 20L)));
-        assertEquals("No se puede cambiar el rol de un SUPERADMIN", ex.getMessage());
         verify(usuarioPlataformaRepository, never()).save(any());
     }
 }

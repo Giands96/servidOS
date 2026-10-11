@@ -17,7 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -60,7 +60,7 @@ class CrearUsuarioPlataformaUseCaseTest {
         return new CrearUsuarioPlataformaCommand("Socia", "Pérez", "Socia@Mail.com", "secreto123", rolId);
     }
 
-    private void dadoActorSuperadmin() {
+    private void dadoActorDePlataforma() {
         when(usuarioPlataformaRepository.findById(1L)).thenReturn(Optional.of(new UsuarioPlataformaJpaEntity()));
     }
 
@@ -72,11 +72,7 @@ class CrearUsuarioPlataformaUseCaseTest {
         when(rolRepository.findById(id)).thenReturn(Optional.of(r));
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"ADMIN", "MODERADOR"})
-    void superadminCreaAdminOModerador(String rol) {
-        dadoActorSuperadmin();
-        dadoRol(20L, rol);
+    private void dadoAltaOk() {
         when(usuarioRepository.existsByEmail("socia@mail.com")).thenReturn(false);
         when(passwordEncoder.encode("secreto123")).thenReturn("hash");
         when(usuarioRepository.saveAndFlush(any())).thenAnswer(i -> {
@@ -84,6 +80,15 @@ class CrearUsuarioPlataformaUseCaseTest {
             e.setUsuarioId(7L);
             return e;
         });
+    }
+
+    @ParameterizedTest
+    @CsvSource({"SUPERADMIN, ADMIN", "SUPERADMIN, MODERADOR", "ADMIN, MODERADOR"})
+    void creaRolesMenoresAlDelActor(String rolActor, String rolNuevo) {
+        CurrentUser.setRole(rolActor);
+        dadoActorDePlataforma();
+        dadoRol(20L, rolNuevo);
+        dadoAltaOk();
 
         var creado = useCase.ejecutar(cmd(20L));
 
@@ -97,25 +102,21 @@ class CrearUsuarioPlataformaUseCaseTest {
         assertEquals(EstadoUsuario.ACTIVO, membresia.getValue().getEstado());
     }
 
+    /** La única diferencia entre SUPERADMIN y ADMIN: un ADMIN no crea otro ADMIN. Nadie crea SUPERADMIN. */
     @ParameterizedTest
-    @ValueSource(strings = {"ADMIN", "MODERADOR"})
-    void soloSuperadminCrea(String rolActor) {
+    @CsvSource({"ADMIN, ADMIN", "ADMIN, SUPERADMIN", "SUPERADMIN, SUPERADMIN", "MODERADOR, MODERADOR"})
+    void noCreaRolesIgualesOSuperiores(String rolActor, String rolNuevo) {
         CurrentUser.setRole(rolActor);
+        dadoActorDePlataforma();
+        dadoRol(20L, rolNuevo);
+
         assertThrows(ForbiddenException.class, () -> useCase.ejecutar(cmd(20L)));
         verify(usuarioRepository, never()).saveAndFlush(any());
     }
 
     @Test
-    void noSeCreaOtroSuperadmin() {
-        dadoActorSuperadmin();
-        dadoRol(10L, "SUPERADMIN");
-        assertThrows(ForbiddenException.class, () -> useCase.ejecutar(cmd(10L)));
-        verify(usuarioRepository, never()).saveAndFlush(any());
-    }
-
-    @Test
     void emailRepetidoEs409() {
-        dadoActorSuperadmin();
+        dadoActorDePlataforma();
         dadoRol(20L, "ADMIN");
         when(usuarioRepository.existsByEmail("socia@mail.com")).thenReturn(true);
         assertThrows(ConflictException.class, () -> useCase.ejecutar(cmd(20L)));

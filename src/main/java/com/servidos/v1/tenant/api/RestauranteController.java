@@ -63,7 +63,7 @@ public class RestauranteController {
     private final CambiarEstadoRestauranteUseCase cambiarEstadoRestauranteUseCase;
 
     @PostMapping
-    @PreAuthorize("hasRole('SUPERADMIN')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     @Operation(summary = "Crear restaurante con plan elegido y demo opcional",
             description = "planId obligatorio. demo=true exige demoDias (1-30, monto 0); demo=false crea una suscripción de un mes. La fecha_fin es inclusiva.")
     @ApiResponses({

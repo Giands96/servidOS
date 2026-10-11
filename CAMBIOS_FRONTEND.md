@@ -336,23 +336,24 @@ El backend corre en `America/Lima`. Las fechas sin zona (`createdAt`, `fechaInic
 
 Los usuarios de plataforma (sin restaurante) tienen tres roles:
 
-- **SUPERADMIN:** el dueño. Puede hacer todo y es el único que crea restaurantes y usuarios de plataforma.
-- **ADMIN:** un socio. Opera los restaurantes igual que el SUPERADMIN, pero no crea restaurantes ni nombra a otros.
+- **SUPERADMIN** y **ADMIN** (un socio) tienen las mismas funciones. La única diferencia es que **solo SUPERADMIN crea ADMINs**: un ADMIN no puede crear a otro ADMIN.
 - **MODERADOR:** consulta restaurantes y renueva suscripciones.
+
+Regla de jerarquía: cada rol solo da roles **menores** al suyo y solo cambia el rol de usuarios con un rol menor. Nadie crea un SUPERADMIN ni le cambia el rol a uno.
 
 | Endpoint | SUPERADMIN | ADMIN | MODERADOR |
 |---|---|---|---|
-| `POST /restaurantes` (crear) | ✅ | ❌ | ❌ |
+| `POST /restaurantes` (crear) | ✅ | ✅ | ❌ |
 | `GET /restaurantes`, `GET /restaurantes/{id}`, `GET /restaurantes/{id}/suscripcion` | ✅ | ✅ | ✅ |
 | `POST /restaurantes/{id}/suscripcion/renovar` | ✅ | ✅ | ✅ |
 | `PATCH /restaurantes/{id}/plan` | ✅ | ✅ | ❌ |
 | `PATCH /restaurantes/{id}/estado` (suspender/reactivar) | ✅ | ✅ | ❌ |
-| `POST /usuarios/plataforma` (nuevo) | ✅ | ❌ | ❌ |
-| `PATCH /usuarios/{id}/rol` con sesión de plataforma | ✅ | ❌ | ❌ |
+| `POST /usuarios/plataforma` (nuevo) | ✅ ADMIN o MODERADOR | ✅ solo MODERADOR | ❌ |
+| `PATCH /usuarios/{id}/rol` con sesión de plataforma | ✅ entre ADMIN y MODERADOR | ✅ solo a MODERADORES | ❌ |
 
-**Antes:** ADMIN podía crear restaurantes y nombrar MODERADORES, pero no podía ver, renovar ni suspender restaurantes. MODERADOR no podía hacer nada.
+**Antes:** ADMIN no podía ver, renovar ni suspender restaurantes, y MODERADOR no podía hacer nada.
 
-**Nuevo `POST /usuarios/plataforma`** (solo SUPERADMIN):
+**Nuevo `POST /usuarios/plataforma`** (SUPERADMIN o ADMIN):
 
 ```http
 POST /api/v1/usuarios/plataforma
@@ -362,13 +363,15 @@ Content-Type: application/json
 ```
 
 - Responde 201 con `{usuarioId, email, nombre, rolPlataformaId}`.
-- `rolPlataformaId` tiene que ser ADMIN o MODERADOR. Con SUPERADMIN responde 403.
+- Si el rol es igual o superior al de quien lo crea, responde 403 "No puedes crear un usuario con un rol igual o superior al tuyo". Por ejemplo, un ADMIN que intenta crear un ADMIN.
 - Si el email ya existe, responde 409.
-- **Cambiar el rol de plataforma:** solo SUPERADMIN, y solo entre ADMIN y MODERADOR. A un SUPERADMIN no se le puede cambiar el rol.
+- Los ids de rol dependen de la base de datos: no los dejes fijos en el front.
+
+**Cambiar el rol de plataforma:** SUPERADMIN puede pasar un usuario de ADMIN a MODERADOR y viceversa. Un ADMIN no puede tocar a otro ADMIN: responde 403 "No puedes cambiar el rol de un usuario con un rol igual o superior al tuyo".
 
 **Qué tocar:**
 - En el panel de plataforma, mostrar u ocultar cada acción según la tabla.
-- Agregar la pantalla para dar de alta socios y moderadores, solo para SUPERADMIN.
+- En el alta de usuarios, ofrecer a un ADMIN solo la opción MODERADOR.
 
 ## 17. Período mensual con `fechaFin` inclusiva ⚠️
 
@@ -403,5 +406,5 @@ Las suscripciones que ya existen conservan sus fechas.
 - [ ] Quitar el cambio de plan del tenant; llevarlo al panel de plataforma (§14).
 - [ ] Mostrar las fechas sin convertir zona (§15).
 - [ ] "Listos para salir": usar `listoAt` del backend en lugar del local (§10).
-- [ ] Panel de plataforma con permisos por rol y alta de ADMIN/MODERADOR (§16).
+- [ ] Panel de plataforma con permisos por rol; alta de usuarios (SUPERADMIN: ADMIN o MODERADOR; ADMIN: solo MODERADOR) (§16).
 - [ ] Textos de vencimiento con `fechaFin` inclusiva (§17).

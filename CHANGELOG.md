@@ -10,21 +10,20 @@ PR: [Giands96/servidOS#15](https://github.com/Giands96/servidOS/pull/15)
 
 | Situación | Regla |
 |---|---|
-| SUPERADMIN | Todo; es el único que crea restaurantes y usuarios de plataforma |
-| ADMIN | Socio: opera los restaurantes (ver, renovar, cambiar plan, suspender), pero no crea restaurantes ni nombra a otros |
+| SUPERADMIN y ADMIN | Las mismas funciones (crear y operar restaurantes, crear usuarios de plataforma y cambiarles el rol). Solo SUPERADMIN crea ADMINs |
+| Jerarquía | Cada rol solo da roles menores al suyo y solo gestiona usuarios con un rol menor; nadie crea un SUPERADMIN ni le cambia el rol a uno |
 | MODERADOR | Consulta restaurantes y renueva suscripciones |
 | Período pagado | Un mes calendario |
 | `fecha_fin` | Inclusiva: el período termina el día anterior al mismo número del mes siguiente |
 
 ### Roles de plataforma
 
-- `POST /restaurantes` pasa a ser solo SUPERADMIN (antes también ADMIN).
 - Listar y ver restaurantes, y ver su suscripción: SUPERADMIN, ADMIN y MODERADOR.
 - Renovar: SUPERADMIN, ADMIN y MODERADOR.
 - Cambiar plan y suspender o reactivar: SUPERADMIN y ADMIN.
-- **Nuevo `POST /usuarios/plataforma`** (SUPERADMIN): alta de usuarios ADMIN o MODERADOR. Antes no había forma de crear usuarios de plataforma por la API.
-- Asignar un rol de plataforma: solo SUPERADMIN (antes un ADMIN podía nombrar MODERADORES). Nunca se otorga SUPERADMIN ni se le cambia el rol a uno.
-- `RolNombrePlataforma` suma `esSuperadmin()` y `esOtorgable()`, que usan el alta y la asignación.
+- **Nuevo `POST /usuarios/plataforma`** (SUPERADMIN y ADMIN): SUPERADMIN crea ADMIN o MODERADOR, y ADMIN solo MODERADOR. Antes no había forma de crear usuarios de plataforma por la API.
+- Asignar un rol de plataforma: además de no poder dar un rol igual o superior al propio, ahora tampoco se puede cambiar el rol de alguien con un rol igual o superior. Un ADMIN no puede degradar a otro ADMIN, y a un SUPERADMIN nadie le cambia el rol.
+- `RolNombrePlataforma.puedeGestionar()` concentra la regla de jerarquía; la usan el alta y la asignación.
 
 ### Duración de las suscripciones
 
@@ -37,7 +36,7 @@ PR: [Giands96/servidOS#15](https://github.com/Giands96/servidOS/pull/15)
 - Nuevos: `CrearUsuarioPlataformaUseCaseTest` y `SuscripcionPeriodoTest` (doce renovaciones encadenadas cobran el mismo día).
 - Tres casos nuevos en `AsignarRolPlataformaTest`.
 - Actualizados con las fechas nuevas: `CrearRestauranteDemoTest`, `RenovarSuscripcionUseCaseTest` y `CambiarPlanHardenTest`.
-- **Resultado:** 271 tests en verde.
+- **Resultado:** 273 tests en verde.
 
 ### Pendiente
 

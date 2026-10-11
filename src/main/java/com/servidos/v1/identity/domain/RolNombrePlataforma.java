@@ -36,16 +36,14 @@ public enum RolNombrePlataforma {
         }
     }
 
-    public static boolean esSuperadmin(String nombre) {
-        return rangoDe(nombre) == SUPERADMIN.rango;
-    }
-
     /**
-     * Roles que se pueden dar a otro usuario de plataforma: ADMIN y MODERADOR. SUPERADMIN
-     * no se otorga por la API (el primero se crea en el bootstrap, V9).
+     * Jerarquía de plataforma: un rol solo otorga, y solo gestiona a usuarios con, un rol
+     * estrictamente menor al suyo. SUPERADMIN maneja ADMIN y MODERADOR; ADMIN (socio, con
+     * las mismas funciones que SUPERADMIN) solo MODERADOR, así que no crea otros ADMIN.
+     * SUPERADMIN nunca se otorga ni se toca por la API (el primero viene del bootstrap, V9).
      */
-    public static boolean esOtorgable(String nombre) {
-        int rango = rangoDe(nombre);
-        return rango > 0 && rango < SUPERADMIN.rango;
+    public static boolean puedeGestionar(String rolActor, String rol) {
+        int rangoRol = rangoDe(rol);
+        return rangoRol > 0 && rangoRol < rangoDe(rolActor);
     }
 }
