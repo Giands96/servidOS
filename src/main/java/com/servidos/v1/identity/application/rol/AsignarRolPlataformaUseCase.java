@@ -48,22 +48,33 @@ public class AsignarRolPlataformaUseCase {
         if (!RolNombrePlataforma.esValido(rolEntity.getNombre())) {
             throw new BusinessException("Rol no reconocido");
         }
-        exigirJerarquia(rolEntity.getNombre());
+        exigirJerarquia(rolEntity.getNombre(), objetivo.getRolPlataformaId());
 
         objetivo.setRolPlataformaId(cmd.nuevoRolId());
         usuarioPlataformaRepository.save(objetivo);
     }
 
-    private void exigirJerarquia(String nombreRolObjetivo) {
+    /**
+     * Solo SUPERADMIN gestiona usuarios de plataforma (ADMIN es un socio con las mismas
+     * operaciones sobre restaurantes, pero no nombra a otros). Nunca se otorga SUPERADMIN
+     * ni se le cambia el rol a uno.
+     */
+    private void exigirJerarquia(String nombreRolObjetivo, Long rolActualObjetivoId) {
         String rolActor = CurrentUser.getRole();
         if (rolActor == null) {
             throw new UnauthorizedException("Sesión inválida");
         }
-        int rangoActor = RolNombrePlataforma.rangoDe(rolActor);
-        int rangoObjetivo = RolNombrePlataforma.rangoDe(nombreRolObjetivo);
-        // Nadie otorga un rol igual o superior al suyo.
-        if (rangoActor == 0 || rangoObjetivo == 0 || rangoObjetivo >= rangoActor) {
-            throw new ForbiddenException("No puedes otorgar un rol igual o superior al tuyo");
+        if (!RolNombrePlataforma.esSuperadmin(rolActor)) {
+            throw new ForbiddenException("Solo un SUPERADMIN puede asignar roles de plataforma");
+        }
+        if (!RolNombrePlataforma.esOtorgable(nombreRolObjetivo)) {
+            throw new ForbiddenException("No se puede otorgar el rol SUPERADMIN");
+        }
+        boolean objetivoEsSuperadmin = rolRepository.findById(rolActualObjetivoId)
+                .map(r -> RolNombrePlataforma.esSuperadmin(r.getNombre()))
+                .orElse(false);
+        if (objetivoEsSuperadmin) {
+            throw new ForbiddenException("No se puede cambiar el rol de un SUPERADMIN");
         }
     }
 }

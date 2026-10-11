@@ -36,7 +36,7 @@ class UsuarioControllerCambiarRolTest {
 
     @BeforeEach
     void setUp() {
-        controller = new UsuarioController(crearUsuarioUseCase, rolRestaurante, rolPlataforma, eliminarUsuarioUseCase);
+        controller = new UsuarioController(crearUsuarioUseCase, rolRestaurante, rolPlataforma, eliminarUsuarioUseCase, null);
     }
 
     @AfterEach

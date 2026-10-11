@@ -108,4 +108,43 @@ class AsignarRolPlataformaTest {
         assertEquals(20L, objetivo.getRolPlataformaId());
         verify(usuarioPlataformaRepository).save(objetivo);
     }
+
+    /** ADMIN es socio pero no nombra a nadie: ni siquiera un MODERADOR. */
+    @Test
+    void adminNoPuedeAsignarNiModerador() {
+        CurrentUser.setRole("ADMIN");
+        when(usuarioPlataformaRepository.findById(1L)).thenReturn(Optional.of(membresia(1L, 2L)));
+        var objetivo = membresia(2L, 4L);
+        when(usuarioPlataformaRepository.findById(2L)).thenReturn(Optional.of(objetivo));
+        when(rolRepository.findById(20L)).thenReturn(Optional.of(rol(20L, "MODERADOR", "ACTIVO")));
+
+        var ex = assertThrows(ForbiddenException.class, () ->
+                useCase.ejecutar(new AsignarRolPlataformaCommand(2L, 20L)));
+        assertEquals("Solo un SUPERADMIN puede asignar roles de plataforma", ex.getMessage());
+        verify(usuarioPlataformaRepository, never()).save(any());
+    }
+
+    @Test
+    void noSeOtorgaSuperadmin() {
+        when(usuarioPlataformaRepository.findById(1L)).thenReturn(Optional.of(membresia(1L, 1L)));
+        when(usuarioPlataformaRepository.findById(2L)).thenReturn(Optional.of(membresia(2L, 3L)));
+        when(rolRepository.findById(10L)).thenReturn(Optional.of(rol(10L, "SUPERADMIN", "ACTIVO")));
+
+        assertThrows(ForbiddenException.class, () ->
+                useCase.ejecutar(new AsignarRolPlataformaCommand(2L, 10L)));
+        verify(usuarioPlataformaRepository, never()).save(any());
+    }
+
+    @Test
+    void noSeLeCambiaElRolAUnSuperadmin() {
+        when(usuarioPlataformaRepository.findById(1L)).thenReturn(Optional.of(membresia(1L, 1L)));
+        when(usuarioPlataformaRepository.findById(2L)).thenReturn(Optional.of(membresia(2L, 10L)));
+        when(rolRepository.findById(20L)).thenReturn(Optional.of(rol(20L, "MODERADOR", "ACTIVO")));
+        when(rolRepository.findById(10L)).thenReturn(Optional.of(rol(10L, "SUPERADMIN", "ACTIVO")));
+
+        var ex = assertThrows(ForbiddenException.class, () ->
+                useCase.ejecutar(new AsignarRolPlataformaCommand(2L, 20L)));
+        assertEquals("No se puede cambiar el rol de un SUPERADMIN", ex.getMessage());
+        verify(usuarioPlataformaRepository, never()).save(any());
+    }
 }

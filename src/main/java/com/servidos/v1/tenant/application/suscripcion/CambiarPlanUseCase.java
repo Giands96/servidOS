@@ -49,7 +49,7 @@ public class CambiarPlanUseCase {
         }
 
         LocalDate fechaInicio = hoy;
-        LocalDate fechaFin = fechaInicio.plusMonths(1);
+        LocalDate fechaFin = Suscripcion.finDeMes(fechaInicio);
         Suscripcion nueva = Suscripcion.crear(cmd.restauranteId(), plan.getPlanId(),
                 plan.getPrecioPlan(), Plan.MONEDA_PEN, fechaInicio, fechaFin);
         var saved = suscripcionRepository.save(suscripcionMapper.toEntity(nueva));

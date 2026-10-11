@@ -89,7 +89,7 @@ class RenovarSuscripcionUseCaseTest {
         var renovada = useCase.ejecutar(new RenovarSuscripcionCommand(7L, null)).suscripcion();
 
         assertEquals(fin.plusDays(1), renovada.getFecha_inicio());
-        assertEquals(fin.plusDays(1).plusMonths(1), renovada.getFecha_fin());
+        assertEquals(fin.plusMonths(1), renovada.getFecha_fin());
         assertEquals(EstadoSuscripcion.ACTIVA, renovada.getEstado());
     }
 
@@ -103,7 +103,7 @@ class RenovarSuscripcionUseCaseTest {
         var renovada = useCase.ejecutar(new RenovarSuscripcionCommand(7L, null)).suscripcion();
 
         assertEquals(LocalDate.now(), renovada.getFecha_inicio());
-        assertEquals(LocalDate.now().plusMonths(1), renovada.getFecha_fin());
+        assertEquals(LocalDate.now().plusMonths(1).minusDays(1), renovada.getFecha_fin());
     }
 
     @Test
