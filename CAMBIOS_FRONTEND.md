@@ -332,8 +332,6 @@ El backend corre en `America/Lima`. Las fechas sin zona (`createdAt`, `fechaInic
 - Mostrarlas tal cual (hora local del restaurante). **No** agregarles `Z` ni tratarlas como UTC: se correrían 5 horas.
 - "Hoy" (vencimiento de la suscripción, filtro `fecha`) también es el día de Lima.
 
----
-
 ## 16. Roles de plataforma ⚠️
 
 Los usuarios de plataforma (sin restaurante) tienen tres roles:
@@ -386,6 +384,8 @@ Content-Type: application/json
 Las suscripciones que ya existen conservan sus fechas.
 
 **Qué tocar:** el texto de vencimiento tiene que decir "vence el {fechaFin}" o "activo hasta el {fechaFin} inclusive". El aviso de §3 ("Tu suscripción termina el {fechaFin}") sigue siendo correcto. Si el front calcula días restantes, `fechaFin − hoy + 1` da los días de acceso que quedan, contando hoy.
+
+---
 
 ## Checklist para el front
 
