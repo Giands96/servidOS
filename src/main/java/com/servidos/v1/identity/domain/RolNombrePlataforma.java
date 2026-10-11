@@ -35,4 +35,15 @@ public enum RolNombrePlataforma {
             return 0;
         }
     }
+
+    /**
+     * Jerarquía de plataforma: un rol solo otorga, y solo gestiona a usuarios con, un rol
+     * estrictamente menor al suyo. SUPERADMIN maneja ADMIN y MODERADOR; ADMIN (socio, con
+     * las mismas funciones que SUPERADMIN) solo MODERADOR, así que no crea otros ADMIN.
+     * SUPERADMIN nunca se otorga ni se toca por la API (el primero viene del bootstrap, V9).
+     */
+    public static boolean puedeGestionar(String rolActor, String rol) {
+        int rangoRol = rangoDe(rol);
+        return rangoRol > 0 && rangoRol < rangoDe(rolActor);
+    }
 }

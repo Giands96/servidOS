@@ -70,7 +70,7 @@ class CambiarPlanHardenTest {
 
         assertEquals(4L, nueva.suscripcion().getPlan_id());
         assertEquals(LocalDate.now(), nueva.suscripcion().getFecha_inicio());
-        assertEquals(LocalDate.now().plusMonths(1), nueva.suscripcion().getFecha_fin());
+        assertEquals(LocalDate.now().plusMonths(1).minusDays(1), nueva.suscripcion().getFecha_fin());
         assertEquals("Estándar", nueva.nombrePlan());
         assertEquals(0, new BigDecimal("34.90").compareTo(nueva.suscripcion().getMonto()));
         assertEquals(EstadoSuscripcion.CANCELADA, actual.getEstado());

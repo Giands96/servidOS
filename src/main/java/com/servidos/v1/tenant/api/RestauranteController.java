@@ -65,7 +65,7 @@ public class RestauranteController {
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     @Operation(summary = "Crear restaurante con plan elegido y demo opcional",
-            description = "planId obligatorio. demo=true exige demoDias (1-30); demo=false crea suscripción directa de 30 días.")
+            description = "planId obligatorio. demo=true exige demoDias (1-30, monto 0); demo=false crea una suscripción de un mes. La fecha_fin es inclusiva.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Restaurante creado"),
             @ApiResponse(responseCode = "400", description = "Slug duplicado, plan inexistente o demo inválida",
@@ -79,7 +79,7 @@ public class RestauranteController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('SUPERADMIN')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MODERADOR')")
     @Operation(summary = "Listar todos los restaurantes (plataforma)",
             description = "Dashboard: paginado (`?page=&size=`, default `size=10`). Cada fila trae la suscripción actual y el nombre del plan en una sola consulta con JOIN (sin N+1).")
     @ApiResponse(responseCode = "200", description = "Página de restaurantes con suscripción")
@@ -107,7 +107,7 @@ public class RestauranteController {
     }
 
     @PatchMapping("/{id}/estado")
-    @PreAuthorize("hasRole('SUPERADMIN')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     @Operation(summary = "Suspender o reactivar un restaurante (plataforma)",
             description = "Palanca de acceso del tenant. INACTIVO le deja leer sus datos pero frena toda "
                     + "escritura con 402, para que el frontend muestre el aviso de pago. Es un acto de la "
@@ -132,7 +132,7 @@ public class RestauranteController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('SUPERADMIN')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MODERADOR')")
     @Operation(summary = "Ver un restaurante por id (plataforma)")
     @ApiResponse(responseCode = "200", description = "Restaurante")
     public ResponseEntity<RestauranteResponse> porId(@PathVariable Long id) {
@@ -140,7 +140,7 @@ public class RestauranteController {
     }
 
     @GetMapping("/{id}/suscripcion")
-    @PreAuthorize("hasRole('SUPERADMIN')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MODERADOR')")
     @Operation(summary = "Ver la suscripción de un restaurante (plataforma)")
     @ApiResponse(responseCode = "200", description = "Suscripción")
     public ResponseEntity<SuscripcionResponse> suscripcionPorId(@PathVariable Long id) {
@@ -148,7 +148,7 @@ public class RestauranteController {
     }
 
     @PatchMapping("/{id}/plan")
-    @PreAuthorize("hasRole('SUPERADMIN')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
     @Operation(summary = "Cambiar el plan de un restaurante (plataforma)",
             description = "La plataforma aplica el cambio cuando recibe el pago. Cancela la suscripción "
                     + "actual y las programadas, y abre una nueva de un mes con el plan elegido desde hoy.")
@@ -160,7 +160,7 @@ public class RestauranteController {
     }
 
     @PostMapping("/{id}/suscripcion/renovar")
-    @PreAuthorize("hasRole('SUPERADMIN')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN','MODERADOR')")
     @Operation(summary = "Renovar o asignar la suscripción de un restaurante (plataforma)",
             description = "La plataforma registra un período pagado fuera del sistema. Sin suscripción "
                     + "previa crea la primera (planId obligatorio). Si la actual sigue vigente, la nueva "

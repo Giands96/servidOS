@@ -1,6 +1,6 @@
 # Cambios del backend para el frontend
 
-Fecha: 2026-10-08, actualizado el 2026-10-09. Incluye lo mergeado en [Giands96/servidOS#12](https://github.com/Giands96/servidOS/pull/12) y lo nuevo de la rama `claude/optimistic-ramanujan-hfasob`, que todavía no está en `main`.
+Fecha: 2026-10-08, actualizado el 2026-10-11. Incluye lo mergeado en [Giands96/servidOS#12](https://github.com/Giands96/servidOS/pull/12) y lo nuevo de la rama `claude/optimistic-ramanujan-hfasob`, que todavía no está en `main`.
 
 Base de la API: `/api/v1`. Los formatos de error no cambian: siguen siendo `ErrorResponse`, con `status`, `message` y `path`.
 
@@ -23,26 +23,28 @@ Base de la API: `/api/v1`. Los formatos de error no cambian: siguen siendo `Erro
 | 13 | RECEPCION y CAJERO pueden cobrar | ⚠️ Cambian los permisos | `permissions.rules.ts` → `pagos.registrar` |
 | 14 | El cambio de plan pasa a la plataforma | ❌ Rompe | Quitar el cambio de plan del tenant |
 | 15 | Fechas en hora de Lima | ⚠️ Aclaración | Mostrar `createdAt` sin convertir |
+| 16 | Roles de plataforma: SUPERADMIN, ADMIN y MODERADOR | ⚠️ Cambian los permisos | Panel de plataforma según el rol |
+| 17 | Período mensual con `fechaFin` inclusiva | ⚠️ Cambia la regla | Textos de vencimiento |
 
 ---
 
 ## 1. Se elimina la renovación del tenant ❌
 
 - **Se elimina:** `POST /restaurantes/actual/suscripcion/renovar`. Ahora responde 404.
-- **Nuevo, solo para SUPERADMIN:** `POST /restaurantes/{id}/suscripcion/renovar`
+- **Nuevo, para la plataforma (SUPERADMIN, ADMIN o MODERADOR):** `POST /restaurantes/{id}/suscripcion/renovar`
 
 Ahora la renovación la hace la plataforma: el cliente paga por billetera digital y la plataforma renueva desde su panel.
 
 ```http
 POST /api/v1/restaurantes/{id}/suscripcion/renovar
-Authorization: Bearer <token SUPERADMIN>
+Authorization: Bearer <token de plataforma>
 Content-Type: application/json
 
 { "planId": 2 }   // opcional; obligatorio solo si el restaurante nunca tuvo suscripción
 ```
 
 - Responde 200 con `SuscripcionResponse`.
-- Si la suscripción actual sigue vigente, la nueva arranca el día siguiente a su `fechaFin`; si no, arranca hoy. Dura un mes.
+- Si la suscripción actual sigue vigente, la nueva arranca el día siguiente a su `fechaFin`; si no, arranca hoy. Dura un mes calendario (ver §17).
 - Si el restaurante estaba INACTIVO, queda ACTIVO.
 - Errores 400:
   - "El plan es obligatorio para la primera suscripción"
@@ -305,23 +307,23 @@ Usos típicos:
 ## 14. El cambio de plan pasa a la plataforma ❌
 
 - **Se elimina:** `PATCH /restaurantes/actual/plan`. Ahora responde 404.
-- **Nuevo, solo para SUPERADMIN:** `PATCH /restaurantes/{id}/plan`
+- **Nuevo, para SUPERADMIN o ADMIN:** `PATCH /restaurantes/{id}/plan`
 
 El restaurante pide el cambio por fuera; la plataforma lo aplica cuando recibe el pago, igual que la renovación.
 
 ```http
 PATCH /api/v1/restaurantes/{id}/plan
-Authorization: Bearer <token SUPERADMIN>
+Authorization: Bearer <token SUPERADMIN o ADMIN>
 Content-Type: application/json
 
 { "nuevoPlanId": 4 }
 ```
 
 - Ya no lleva `confirmado` ni `password`; la confirmación la pide el panel de plataforma.
-- Cancela la suscripción actual y las programadas, y crea una nueva desde hoy por **un mes** (antes eran 30 días), al precio del plan.
+- Cancela la suscripción actual y las programadas, y crea una nueva desde hoy por **un mes calendario** (§17), al precio del plan.
 - Responde 200 con `SuscripcionResponse`.
 
-**Qué tocar:** quitar el formulario de cambio de plan del ADMINISTRADOR (la "doble confirmación con contraseña" de la fase Restaurante). En su lugar, mostrar el plan actual y un texto para contactar a la plataforma. El cambio va al dashboard de SUPERADMIN (fase Plataforma).
+**Qué tocar:** quitar el formulario de cambio de plan del ADMINISTRADOR (la "doble confirmación con contraseña" de la fase Restaurante). En su lugar, mostrar el plan actual y un texto para contactar a la plataforma. El cambio va al dashboard de plataforma (fase Plataforma), para SUPERADMIN y ADMIN.
 
 ## 15. Fechas en hora de Lima ⚠️
 
@@ -329,6 +331,62 @@ El backend corre en `America/Lima`. Las fechas sin zona (`createdAt`, `fechaInic
 
 - Mostrarlas tal cual (hora local del restaurante). **No** agregarles `Z` ni tratarlas como UTC: se correrían 5 horas.
 - "Hoy" (vencimiento de la suscripción, filtro `fecha`) también es el día de Lima.
+
+## 16. Roles de plataforma ⚠️
+
+Los usuarios de plataforma (sin restaurante) tienen tres roles:
+
+- **SUPERADMIN** y **ADMIN** (un socio) tienen las mismas funciones. La única diferencia es que **solo SUPERADMIN crea ADMINs**: un ADMIN no puede crear a otro ADMIN.
+- **MODERADOR:** consulta restaurantes y renueva suscripciones.
+
+Regla de jerarquía: cada rol solo da roles **menores** al suyo y solo cambia el rol de usuarios con un rol menor. Nadie crea un SUPERADMIN ni le cambia el rol a uno.
+
+| Endpoint | SUPERADMIN | ADMIN | MODERADOR |
+|---|---|---|---|
+| `POST /restaurantes` (crear) | ✅ | ✅ | ❌ |
+| `GET /restaurantes`, `GET /restaurantes/{id}`, `GET /restaurantes/{id}/suscripcion` | ✅ | ✅ | ✅ |
+| `POST /restaurantes/{id}/suscripcion/renovar` | ✅ | ✅ | ✅ |
+| `PATCH /restaurantes/{id}/plan` | ✅ | ✅ | ❌ |
+| `PATCH /restaurantes/{id}/estado` (suspender/reactivar) | ✅ | ✅ | ❌ |
+| `POST /usuarios/plataforma` (nuevo) | ✅ ADMIN o MODERADOR | ✅ solo MODERADOR | ❌ |
+| `PATCH /usuarios/{id}/rol` con sesión de plataforma | ✅ entre ADMIN y MODERADOR | ✅ solo a MODERADORES | ❌ |
+
+**Antes:** ADMIN no podía ver, renovar ni suspender restaurantes, y MODERADOR no podía hacer nada.
+
+**Nuevo `POST /usuarios/plataforma`** (SUPERADMIN o ADMIN):
+
+```http
+POST /api/v1/usuarios/plataforma
+Content-Type: application/json
+
+{ "nombre": "Ana", "apellido": "Pérez", "email": "ana@mail.com", "password": "minimo8car", "rolPlataformaId": 2 }
+```
+
+- Responde 201 con `{usuarioId, email, nombre, rolPlataformaId}`.
+- Si el rol es igual o superior al de quien lo crea, responde 403 "No puedes crear un usuario con un rol igual o superior al tuyo". Por ejemplo, un ADMIN que intenta crear un ADMIN.
+- Si el email ya existe, responde 409.
+- Los ids de rol dependen de la base de datos: no los dejes fijos en el front.
+
+**Cambiar el rol de plataforma:** SUPERADMIN puede pasar un usuario de ADMIN a MODERADOR y viceversa. Un ADMIN no puede tocar a otro ADMIN: responde 403 "No puedes cambiar el rol de un usuario con un rol igual o superior al tuyo".
+
+**Qué tocar:**
+- En el panel de plataforma, mostrar u ocultar cada acción según la tabla.
+- En el alta de usuarios, ofrecer a un ADMIN solo la opción MODERADOR.
+
+## 17. Período mensual con `fechaFin` inclusiva ⚠️
+
+**`fechaFin` es el último día en que el restaurante opera.** Se bloquea al día siguiente.
+
+| Caso | Antes | Ahora |
+|---|---|---|
+| Alta sin demo el 11/10 | 11/10 → 10/11 (30 días, más un día extra) | 11/10 → **10/11** (un mes) |
+| Renovar desde el 11/10 | 11/10 → 11/11 (un mes y un día) | 11/10 → **10/11** |
+| Renovación encadenada | Arrancaba un día más tarde cada mes | Arranca el **11/11**: la fecha de cobro no se corre |
+| Demo de 7 días desde el 11/10 | 11/10 → 18/10 (8 días) | 11/10 → **17/10** (7 días) |
+
+Las suscripciones que ya existen conservan sus fechas.
+
+**Qué tocar:** el texto de vencimiento tiene que decir "vence el {fechaFin}" o "activo hasta el {fechaFin} inclusive". El aviso de §3 ("Tu suscripción termina el {fechaFin}") sigue siendo correcto. Si el front calcula días restantes, `fechaFin − hoy + 1` da los días de acceso que quedan, contando hoy.
 
 ---
 

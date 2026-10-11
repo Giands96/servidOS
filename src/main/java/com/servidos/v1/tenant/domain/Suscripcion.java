@@ -40,4 +40,20 @@ public class Suscripcion {
         return Suscripcion.builder().restaurante_id(restaurante_id).plan_id(plan_id).monto(monto).moneda(moneda)
                 .estado(EstadoSuscripcion.ACTIVA).fecha_inicio(fecha_inicio).fecha_fin(fecha_fin).build();
     }
+
+    /*
+     * fecha_fin es inclusiva: el restaurante opera ese día (SubscriptionFilter bloquea si
+     * fecha_fin < hoy) y la renovación arranca el día siguiente. Por eso el período termina
+     * un día antes: 11/10 → 10/11, y el próximo arranca el 11/11 (la fecha de cobro no se corre).
+     */
+
+    /** Fin de un período pagado: un mes calendario. */
+    public static LocalDate finDeMes(LocalDate inicio) {
+        return inicio.plusMonths(1).minusDays(1);
+    }
+
+    /** Fin de un período de {@code dias} días contando el de inicio (demo). */
+    public static LocalDate finDeDias(LocalDate inicio, int dias) {
+        return inicio.plusDays(dias - 1L);
+    }
 }
