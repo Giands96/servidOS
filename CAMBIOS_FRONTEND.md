@@ -406,5 +406,3 @@ Las suscripciones que ya existen conservan sus fechas.
 - [ ] Quitar el cambio de plan del tenant; llevarlo al panel de plataforma (§14).
 - [ ] Mostrar las fechas sin convertir zona (§15).
 - [ ] "Listos para salir": usar `listoAt` del backend en lugar del local (§10).
-- [ ] Panel de plataforma con permisos por rol; alta de usuarios (SUPERADMIN: ADMIN o MODERADOR; ADMIN: solo MODERADOR) (§16).
-- [ ] Textos de vencimiento con `fechaFin` inclusiva (§17).

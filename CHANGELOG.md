@@ -2,46 +2,6 @@
 
 Cambios relevantes del proyecto, del más reciente al más antiguo.
 
-## 2026-10-11: roles de plataforma y duración de las suscripciones
-
-PR: [Giands96/servidOS#15](https://github.com/Giands96/servidOS/pull/15)
-
-### Reglas de negocio definidas
-
-| Situación | Regla |
-|---|---|
-| SUPERADMIN y ADMIN | Las mismas funciones (crear y operar restaurantes, crear usuarios de plataforma y cambiarles el rol). Solo SUPERADMIN crea ADMINs |
-| Jerarquía | Cada rol solo da roles menores al suyo y solo gestiona usuarios con un rol menor; nadie crea un SUPERADMIN ni le cambia el rol a uno |
-| MODERADOR | Consulta restaurantes y renueva suscripciones |
-| Período pagado | Un mes calendario |
-| `fecha_fin` | Inclusiva: el período termina el día anterior al mismo número del mes siguiente |
-
-### Roles de plataforma
-
-- Listar y ver restaurantes, y ver su suscripción: SUPERADMIN, ADMIN y MODERADOR.
-- Renovar: SUPERADMIN, ADMIN y MODERADOR.
-- Cambiar plan y suspender o reactivar: SUPERADMIN y ADMIN.
-- **Nuevo `POST /usuarios/plataforma`** (SUPERADMIN y ADMIN): SUPERADMIN crea ADMIN o MODERADOR, y ADMIN solo MODERADOR. Antes no había forma de crear usuarios de plataforma por la API.
-- Asignar un rol de plataforma: además de no poder dar un rol igual o superior al propio, ahora tampoco se puede cambiar el rol de alguien con un rol igual o superior. Un ADMIN no puede degradar a otro ADMIN, y a un SUPERADMIN nadie le cambia el rol.
-- `RolNombrePlataforma.puedeGestionar()` concentra la regla de jerarquía; la usan el alta y la asignación.
-
-### Duración de las suscripciones
-
-- Antes, el alta sin demo daba 30 días, mientras que renovar y cambiar de plan daban un mes. Además, cada período regalaba un día: `fecha_fin` es inclusiva y la renovación arranca al día siguiente, así que la fecha de cobro se corría un día por mes.
-- Ahora `Suscripcion.finDeMes()` y `Suscripcion.finDeDias()` calculan todos los períodos: un mes calendario termina el día anterior (11/10 → 10/11), y un demo de N días da N días.
-- Las suscripciones existentes conservan sus fechas.
-
-### Tests
-
-- Nuevos: `CrearUsuarioPlataformaUseCaseTest` y `SuscripcionPeriodoTest` (doce renovaciones encadenadas cobran el mismo día).
-- Tres casos nuevos en `AsignarRolPlataformaTest`.
-- Actualizados con las fechas nuevas: `CrearRestauranteDemoTest`, `RenovarSuscripcionUseCaseTest` y `CambiarPlanHardenTest`.
-- **Resultado:** 273 tests en verde.
-
-### Pendiente
-
-- Un período que empieza un 29, 30 o 31 se acorta en los meses más cortos, y desde ahí la fecha de cobro queda en ese día menor. Por ejemplo, 31/01 → 27/02, y la siguiente renovación arranca el 28/02.
-
 ## 2026-10-09: tablero de cocina en vivo, listado de pedidos y limpieza de permisos
 
 PRs: [Giands96/servidOS#13](https://github.com/Giands96/servidOS/pull/13), [Giands96/servidOS#14](https://github.com/Giands96/servidOS/pull/14) y [Giands96/servidOS#15](https://github.com/Giands96/servidOS/pull/15)
