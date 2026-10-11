@@ -2,6 +2,75 @@
 
 Cambios relevantes del proyecto, del más reciente al más antiguo.
 
+## 2026-10-09: tablero de cocina en vivo, listado de pedidos y limpieza de permisos
+
+PRs: [Giands96/servidOS#13](https://github.com/Giands96/servidOS/pull/13), [Giands96/servidOS#14](https://github.com/Giands96/servidOS/pull/14) y [Giands96/servidOS#15](https://github.com/Giands96/servidOS/pull/15)
+
+### Resumen
+
+- La cocina puede ver los pedidos LISTOS y recibe los cambios del tablero en vivo por WebSocket.
+- Nuevo listado de pedidos con filtros para caja, recepción e historial.
+- RECEPCION y CAJERO pueden cobrar.
+- El cambio de plan pasa a la plataforma, igual que la renovación.
+- La aplicación corre en hora de Lima.
+- `CAMBIOS_FRONTEND.md` resume estos cambios y los del PR #12 para el frontend.
+
+### Reglas de negocio definidas
+
+| Situación | Regla |
+|---|---|
+| Cancelar un pedido | ADMINISTRADOR o RECEPCION, sin contraseña ni aprobación; solo si no está pagado |
+| Pedido pagado que hay que anular | Se reembolsa el pago, y el reembolso cancela el pedido |
+| Reembolso | Solo de un pago PAGADO |
+| Quién cobra | ADMINISTRADOR, RECEPCION y CAJERO |
+| Cambio de plan | Solo la plataforma, cuando recibe el pago |
+| Zona horaria del negocio | America/Lima |
+
+### Cocina
+
+- **Nuevo `GET /api/v1/cocina/listos`** (ADMINISTRADOR, RECEPCION, COCINERO): pedidos LISTO del restaurante, con el mismo formato que `GET /cocina/cola`.
+- **`listoAt`** en `GET /cocina/listos` (y `null` en la cola): cuándo pasó el pedido a LISTO, para mostrar "hace N min" aunque se recargue la página. Columna nueva `pedido.listo_at` (migración V13); la entidad la fija una sola vez al llegar a LISTO, por cocina o por la API de pedidos.
+- **WebSocket del tablero:** STOMP sobre WebSocket nativo en `/ws`.
+  - Tópico `/topic/restaurantes/{restauranteId}/cocina`.
+  - Mensaje `{pedidoId, estadoAnterior, estadoNuevo}` cada vez que un pedido entra, cambia o sale de EN_PREPARACION o LISTO.
+  - Se envía después del commit: si la operación falla, no se avisa.
+  - `StompAuthInterceptor`: el JWT va en el frame CONNECT (rol ADMINISTRADOR, RECEPCION o COCINERO); solo se puede suscribir al tópico del propio restaurante; el cliente no puede enviar mensajes.
+- Nuevo evento `PedidoEstadoCambiadoEvent`, publicado en cada cambio de estado de `CambiarEstadoPedidoUseCase`.
+
+### Pedidos y pagos
+
+- **Nuevo `GET /api/v1/pedidos`** (ADMINISTRADOR, RECEPCION, CAJERO):
+  - Paginado (máximo 100), del más nuevo al más viejo, solo del restaurante del token.
+  - Filtros opcionales: `estado`, `fecha` (día de creación) y `porCobrar=true` (no cancelados, ni pagados, ni reembolsados).
+  - Cada pedido trae `estadoPago`: PAGADO, REEMBOLSADO o null.
+- **`POST /pagos`** acepta ADMINISTRADOR, RECEPCION y CAJERO (antes solo ADMINISTRADOR).
+- La descripción de Swagger del reembolso estaba desactualizada (decía que el pedido quedaba cancelable); ahora explica que el reembolso lo cancela.
+
+### Suscripciones
+
+- **`PATCH /restaurantes/actual/plan` se reemplaza por `PATCH /restaurantes/{id}/plan`**, solo SUPERADMIN, con body `{"nuevoPlanId": n}` y sin contraseña. La nueva suscripción dura un mes, igual que la renovación (antes eran 30 días).
+- Cancelar la suscripción queda solo para ADMINISTRADOR (aceptaba SUPERADMIN, que no tiene restaurante y siempre recibía 400).
+- Se borra `GestionarSuscripcionUseCase.suscribir()`, que no tenía llamadas.
+
+### Configuración
+
+- La JVM corre en `America/Lima` (`V1Application` y surefire), para que "hoy" y `createdAt` sean los del negocio sin depender del servidor. Las fechas guardadas antes con el servidor en UTC quedan corridas 5 horas.
+
+### Tests
+
+- Nuevos: `CocinaWebSocketControllerTest`, `StompAuthInterceptorTest`, `ListarPedidosUseCaseTest`, `ZonaHorariaTest`, y casos nuevos en `GestionarColaCocinaUseCaseTest`, `CambiarEstadoPedidoUseCaseTest`, `RegistrarReembolsoUseCaseTest` y `PedidoControllerTest`.
+- De integración (Postgres): `CocinaWebSocketIntegracionTest` (servidor y cliente STOMP reales) y `ListarPedidosIntegracionTest`. Ambos se verificaron con mutaciones: sin la validación de suscripción al tópico, o sin excluir los reembolsados de "por cobrar", fallan.
+- `CambiarPlanHardenTest` reescrito para el cambio de plan de plataforma.
+- `ListosConHoraIntegracionTest` (Postgres): `listoAt` por los dos caminos y que se conserva al salir de LISTO; con mutación.
+- **Resultado:** 259 tests en verde.
+
+### Pendientes
+
+- `marcarListo` de cocina cambia el estado del pedido directamente en lugar de usar `CambiarEstadoPedidoUseCase`.
+- El broker de WebSocket está en memoria: con más de una instancia del backend habría que pasar a uno externo.
+- El token del WebSocket se valida solo al conectar.
+- Los `@PreAuthorize` siguen sin tests (falta `spring-security-test`).
+
 ## 2026-10-08: control de acceso por suscripción, pagos y aislamiento entre restaurantes
 
 PR: [Giands96/servidOS#12](https://github.com/Giands96/servidOS/pull/12)

@@ -51,7 +51,8 @@ public class CocinaController {
     @GetMapping("/listos")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION','COCINERO')")
     @Operation(summary = "Listar pedidos listos",
-            description = "Pedidos ya preparados (LISTO) del tenant actual, pendientes de servir o despachar.")
+            description = "Pedidos ya preparados (LISTO) del tenant actual, pendientes de servir o despachar. "
+                    + "`listoAt` es el momento en que pasaron a LISTO.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Pedidos listos"),
             @ApiResponse(responseCode = "401", description = "Sin sesión",
@@ -89,6 +90,7 @@ public class CocinaController {
                 p.getObservacion(),
                 p.getTotal(),
                 p.getCreated_at(),
+                p.getListo_at(),
                 p.getItems() == null ? List.of() : p.getItems().stream()
                         .map(i -> new CocinaDetalleResponse(
                                 i.getDetalle_id(),

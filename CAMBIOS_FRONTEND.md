@@ -173,6 +173,7 @@ Devuelve los pedidos en estado LISTO del restaurante, con **el mismo formato que
     "observacion": null,
     "total": 50.00,
     "createdAt": "2026-10-08T12:30:00",
+    "listoAt": "2026-10-08T12:52:10",
     "items": [
       { "detalleId": 41, "productoId": 7, "nombreProducto": "Lomo saltado", "cantidad": 2, "observacion": null }
     ]
@@ -181,6 +182,11 @@ Devuelve los pedidos en estado LISTO del restaurante, con **el mismo formato que
 ```
 
 Funciona aunque el restaurante esté bloqueado, porque es una lectura.
+
+**`listoAt`:** el momento en que el pedido pasó a LISTO, en hora de Lima.
+- Sirve para el "hace N min" de "Listos para salir", y ya no se pierde al recargar. Ya no hace falta guardar un `listoAt` local en el front.
+- En `GET /cocina/cola` viene `null`.
+- Los pedidos que ya estaban LISTO antes de este cambio toman la hora de su última modificación.
 
 ## 11. WebSocket del tablero de cocina ✅
 
@@ -341,3 +347,4 @@ El backend corre en `America/Lima`. Las fechas sin zona (`createdAt`, `fechaInic
 - [ ] `pagos.registrar` para ADMINISTRADOR, RECEPCION y CAJERO (§13).
 - [ ] Quitar el cambio de plan del tenant; llevarlo al panel de plataforma (§14).
 - [ ] Mostrar las fechas sin convertir zona (§15).
+- [ ] "Listos para salir": usar `listoAt` del backend en lugar del local (§10).
