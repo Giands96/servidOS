@@ -74,8 +74,9 @@ public class RestauranteController {
     public ResponseEntity<RestauranteResponse> crear(@Valid @RequestBody CrearRestauranteRequest request) {
         var creado = crearRestauranteUseCase.ejecutar(new CrearRestauranteCommand(
                 request.slug(), request.nombre(), request.direccion(), request.planId(),
-                request.demo(), request.demoDias()));
-        return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(creado));
+                request.demo(), request.demoDias(), null));
+        // TODO(T3): el request aún no trae el administrador; transitorio hasta cablear el API.
+        return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(creado.restaurante()));
     }
 
     @GetMapping

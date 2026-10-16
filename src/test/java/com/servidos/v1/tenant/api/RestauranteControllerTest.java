@@ -9,6 +9,7 @@ import com.servidos.v1.tenant.application.restaurante.CambiarEstadoRestauranteUs
 import com.servidos.v1.tenant.application.restaurante.CrearRestauranteUseCase;
 import com.servidos.v1.tenant.application.restaurante.ListarRestaurantesUseCase;
 import com.servidos.v1.tenant.application.restaurante.ObtenerRestauranteUseCase;
+import com.servidos.v1.tenant.application.restaurante.RestauranteCreado;
 import com.servidos.v1.tenant.application.suscripcion.CambiarPlanUseCase;
 import com.servidos.v1.tenant.application.suscripcion.GestionarSuscripcionUseCase;
 import com.servidos.v1.tenant.application.suscripcion.RenovarSuscripcionUseCase;
@@ -57,9 +58,9 @@ class RestauranteControllerTest {
 
     @Test
     void crearDemoDelegaYDa201() {
-        when(crearRestauranteUseCase.ejecutar(any())).thenReturn(
+        when(crearRestauranteUseCase.ejecutar(any())).thenReturn(new RestauranteCreado(
                 Restaurante.builder().restaurante_id(1L).slug("demo").nombre("Demo")
-                        .estado(EstadoRestaurante.ACTIVO).build());
+                        .estado(EstadoRestaurante.ACTIVO).build(), null));
         var resp = controller.crear(new CrearRestauranteRequest("demo", "Demo", null, 9L, true, 10));
         assertEquals(HttpStatus.CREATED, resp.getStatusCode());
         assertEquals("demo", resp.getBody().slug());
