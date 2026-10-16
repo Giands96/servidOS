@@ -77,6 +77,15 @@ Platform); product owner decided restaurant and owner are created together.
 - Final verification: targeted set (UseCase/Demo/Controller/CrearWeb/CrearUsuarioSeguridad/AuthControllerMe) -> 50 tests, 0 failures, BUILD SUCCESS.
   Full `./mvnw test` -> 283 tests, 0 failures, 21 errors, all `Connection to localhost:5433 refused` (DB-backed classes, pre-existing and new).
 - T5: `docs/progress/2026-10-16-crear-restaurante-con-administrador.md` created.
+- Parent spot check: targeted set re-run -> exit 0.
+- RDD: assess medium (`slice_budget_reached`, range main..666e76a); consent granted; lens review-reliability ->
+  approved, acknowledged (lineage `review-27ef0648634a40dc`, authority burned). Advisory (non-blocking) findings, follow-ups:
+  - R3-integration-not-executed (WARNING): run T4 against Postgres before merge.
+  - R3-dive-misattributed (WARNING): `saveAndFlush` flushes the whole context; a non-email integrity violation (e.g. the
+    subscription) would be reported as 409 "El email ya existe". Option: flush before registering the owner or inspect the
+    violated constraint name.
+  - R3-bcrypt-byte-limit (SUGGESTION): 72 is counted in chars, BCrypt limit is 72 bytes (pre-existing in `POST /usuarios` too).
+- The unrelated staged workspace candidate (skills, frontend docs; 70 files) was declined by the user for review.
 
 ## Next step
 - Run T4 and the full suite against Postgres (`docker compose -f Docker/docker-test-compose.yaml up -d`), then push/PR (user decision).
