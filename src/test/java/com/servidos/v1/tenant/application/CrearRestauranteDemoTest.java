@@ -92,7 +92,7 @@ class CrearRestauranteDemoTest {
         useCase.ejecutar(cmd(true, 10));
         var captor = ArgumentCaptor.forClass(SuscripcionJpaEntity.class);
         org.mockito.Mockito.verify(suscripcionRepository).save(captor.capture());
-        assertEquals(LocalDate.now().plusDays(10), captor.getValue().getFechaFin());
+        assertEquals(LocalDate.now().plusDays(9), captor.getValue().getFechaFin());
         assertEquals(0, BigDecimal.ZERO.compareTo(captor.getValue().getMonto()), "una demo no se cobra");
     }
 
@@ -102,7 +102,7 @@ class CrearRestauranteDemoTest {
         useCase.ejecutar(cmd(false, null));
         var captor = ArgumentCaptor.forClass(SuscripcionJpaEntity.class);
         org.mockito.Mockito.verify(suscripcionRepository).save(captor.capture());
-        assertEquals(LocalDate.now().plusDays(30), captor.getValue().getFechaFin());
+        assertEquals(LocalDate.now().plusMonths(1).minusDays(1), captor.getValue().getFechaFin());
         assertEquals(0, new BigDecimal("34.90").compareTo(captor.getValue().getMonto()));
     }
 

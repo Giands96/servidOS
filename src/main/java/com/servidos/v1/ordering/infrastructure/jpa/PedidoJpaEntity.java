@@ -40,6 +40,13 @@ public class PedidoJpaEntity {
     private LocalDateTime createdAt;
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-    @PrePersist protected void onCreate() { LocalDateTime now = LocalDateTime.now(); this.createdAt = now; this.updatedAt = now; }
-    @PreUpdate protected void onUpdate() { this.updatedAt = LocalDateTime.now(); }
+    /** Cuándo pasó a LISTO; se fija una sola vez, sea por cocina o por la API de pedidos. */
+    @Column(name = "listo_at")
+    private LocalDateTime listoAt;
+    @PrePersist protected void onCreate() { LocalDateTime now = LocalDateTime.now(); this.createdAt = now; this.updatedAt = now; registrarListo(now); }
+    @PreUpdate protected void onUpdate() { LocalDateTime now = LocalDateTime.now(); this.updatedAt = now; registrarListo(now); }
+
+    private void registrarListo(LocalDateTime now) {
+        if (estado == EstadoPedido.LISTO && listoAt == null) this.listoAt = now;
+    }
 }

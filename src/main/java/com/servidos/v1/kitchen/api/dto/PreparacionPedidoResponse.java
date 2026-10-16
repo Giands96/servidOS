@@ -15,4 +15,5 @@ public record PreparacionPedidoResponse(
         String observacion,
         BigDecimal total,
         LocalDateTime createdAt,
+        LocalDateTime listoAt,
         List<CocinaDetalleResponse> items) {}

@@ -39,12 +39,15 @@ public class CrearRestauranteUseCase {
         Restaurante domain = Restaurante.crear(cmd.slug(), cmd.nombre(), cmd.direccion());
         var savedR = restauranteRepository.save(restauranteMapper.toEntity(domain));
         boolean demo = Boolean.TRUE.equals(cmd.demo());
-        int dias = demo ? validarDemoDias(cmd.demoDias()) : 30;
+        LocalDate hoy = LocalDate.now();
+        LocalDate fechaFin = demo
+                ? Suscripcion.finDeDias(hoy, validarDemoDias(cmd.demoDias()))
+                : Suscripcion.finDeMes(hoy);
         // monto es lo cobrado: una demo es gratis. El período siguiente lo renueva la
         // plataforma y ahí toma el precio de lista.
         BigDecimal monto = demo ? BigDecimal.ZERO : plan.getPrecioPlan();
         Suscripcion s = Suscripcion.crear(savedR.getRestauranteId(), plan.getPlanId(),
-                monto, Plan.MONEDA_PEN, LocalDate.now(), LocalDate.now().plusDays(dias));
+                monto, Plan.MONEDA_PEN, hoy, fechaFin);
         suscripcionRepository.save(suscripcionMapper.toEntity(s));
         var administrador = registrarAdministrador.ejecutar(cmd.administrador(), savedR.getRestauranteId());
         // El evento va al final: los listeners (síncronos) no ven un restaurante que luego se revierta.

@@ -54,7 +54,7 @@ public class RenovarSuscripcionUseCase {
                 .filter(s -> s.getFechaFin() != null && !s.getFechaFin().isBefore(hoy))
                 .map(s -> s.getFechaFin().plusDays(1))
                 .orElse(hoy);
-        LocalDate fechaFin = fechaInicio.plusMonths(1);
+        LocalDate fechaFin = Suscripcion.finDeMes(fechaInicio);
 
         Suscripcion nueva = Suscripcion.crear(cmd.restauranteId(), plan.getPlanId(),
                 plan.getPrecioPlan(), Plan.MONEDA_PEN, fechaInicio, fechaFin);

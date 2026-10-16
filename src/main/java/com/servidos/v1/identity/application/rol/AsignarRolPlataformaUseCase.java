@@ -48,22 +48,26 @@ public class AsignarRolPlataformaUseCase {
         if (!RolNombrePlataforma.esValido(rolEntity.getNombre())) {
             throw new BusinessException("Rol no reconocido");
         }
-        exigirJerarquia(rolEntity.getNombre());
+        exigirJerarquia(rolEntity.getNombre(), objetivo.getRolPlataformaId());
 
         objetivo.setRolPlataformaId(cmd.nuevoRolId());
         usuarioPlataformaRepository.save(objetivo);
     }
 
-    private void exigirJerarquia(String nombreRolObjetivo) {
+    /** Ver {@link RolNombrePlataforma#puedeGestionar}: vale para el rol nuevo y para el actual. */
+    private void exigirJerarquia(String nombreRolObjetivo, Long rolActualObjetivoId) {
         String rolActor = CurrentUser.getRole();
         if (rolActor == null) {
             throw new UnauthorizedException("Sesión inválida");
         }
-        int rangoActor = RolNombrePlataforma.rangoDe(rolActor);
-        int rangoObjetivo = RolNombrePlataforma.rangoDe(nombreRolObjetivo);
-        // Nadie otorga un rol igual o superior al suyo.
-        if (rangoActor == 0 || rangoObjetivo == 0 || rangoObjetivo >= rangoActor) {
+        if (!RolNombrePlataforma.puedeGestionar(rolActor, nombreRolObjetivo)) {
             throw new ForbiddenException("No puedes otorgar un rol igual o superior al tuyo");
+        }
+        String rolActual = rolRepository.findById(rolActualObjetivoId)
+                .map(r -> r.getNombre())
+                .orElse(null);
+        if (!RolNombrePlataforma.puedeGestionar(rolActor, rolActual)) {
+            throw new ForbiddenException("No puedes cambiar el rol de un usuario con un rol igual o superior al tuyo");
         }
     }
 }

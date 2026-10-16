@@ -1,5 +1,9 @@
 package com.servidos.v1.identity.api;
 
+import com.servidos.v1.identity.api.dto.RegistrarUsuarioPlataformaRequest;
+import com.servidos.v1.identity.api.dto.UsuarioPlataformaResponse;
+import com.servidos.v1.identity.application.usuario.CrearUsuarioPlataformaCommand;
+import com.servidos.v1.identity.application.usuario.CrearUsuarioPlataformaUseCase;
 import com.servidos.v1.identity.api.dto.CambiarRolRequest;
 import com.servidos.v1.identity.api.dto.RegistrarUsuarioRequest;
 import com.servidos.v1.identity.api.dto.UsuarioResponse;
@@ -46,6 +50,7 @@ public class UsuarioController {
     private final AsignarRolRestauranteUseCase asignarRolRestauranteUseCase;
     private final AsignarRolPlataformaUseCase asignarRolPlataformaUseCase;
     private final EliminarUsuarioUseCase eliminarUsuarioUseCase;
+    private final CrearUsuarioPlataformaUseCase crearUsuarioPlataformaUseCase;
 
     @PostMapping
     @PreAuthorize("hasRole('ADMINISTRADOR')")
@@ -77,13 +82,36 @@ public class UsuarioController {
                 restauranteId, request.rolRestauranteId()));
     }
 
+    @PostMapping("/plataforma")
+    @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
+    @Operation(summary = "Registrar usuario de plataforma (ADMIN o MODERADOR)",
+            description = "SUPERADMIN crea ADMIN o MODERADOR; ADMIN solo MODERADOR. No se puede crear un SUPERADMIN.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Usuario creado",
+                    content = @Content(schema = @Schema(implementation = UsuarioPlataformaResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Datos inválidos o rol inexistente/inactivo",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Rol igual o superior al del actor",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "El email ya existe",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "422", description = "Validación Jakarta (@Valid)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
+    public ResponseEntity<UsuarioPlataformaResponse> registrarPlataforma(
+            @Valid @RequestBody RegistrarUsuarioPlataformaRequest request) {
+        var creado = crearUsuarioPlataformaUseCase.ejecutar(new CrearUsuarioPlataformaCommand(
+                request.nombre(), request.apellido(), request.email(), request.password(), request.rolPlataformaId()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(new UsuarioPlataformaResponse(
+                creado.getUsuario_id(), creado.getEmail(), creado.getNombre(), request.rolPlataformaId()));
+    }
+
     @PatchMapping("/{id}/rol")
-    // MODERADOR queda afuera: con su rango no puede otorgar ningún rol de plataforma.
+    // En plataforma cada rol gestiona solo roles menores al suyo; MODERADOR no gestiona a nadie.
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','SUPERADMIN','ADMIN')")
     @Operation(summary = "Cambiar rol de un usuario",
             description = "Con sesión de restaurante delega a AsignarRolRestauranteUseCase "
                     + "(solo ADMINISTRADOR, nunca otorga ADMINISTRADOR, cross-tenant 403). "
-                    + "Con sesión de plataforma delega a AsignarRolPlataformaUseCase (jerarquía SUPERADMIN > ADMIN > MODERADOR).")
+                    + "Con sesión de plataforma delega a AsignarRolPlataformaUseCase: SUPERADMIN otorga ADMIN o MODERADOR; ADMIN solo MODERADOR.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Rol actualizado"),
             @ApiResponse(responseCode = "400", description = "Rol inexistente/inactivo o comando inválido",
