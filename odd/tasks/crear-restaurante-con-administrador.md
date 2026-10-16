@@ -47,8 +47,8 @@ Platform); product owner decided restaurant and owner are created together.
 |----|------|-------|--------|--------|
 | T1 | Identity: `RegistrarAdministradorRestauranteUseCase` + `RolRestauranteJpaRepository.findByNombre` + unit tests | delegated (writer trigger: 2+ non-trivial files) | [x] | 1169132 |
 | T2 | Tenant: command/result + orchestration in `CrearRestauranteUseCase` + unit tests (update `CrearRestauranteDemoTest`) | delegated | [x] | c243ce9 |
-| T3 | API: request/response DTOs, controller, OpenAPI + controller tests (update `RestauranteControllerTest`) | delegated | [x] | (this commit) |
-| T4 | Integration: happy path (login + `/auth/me`), email dup -> 409 + no restaurant, slug dup -> 400 + no user | delegated | [ ] | |
+| T3 | API: request/response DTOs, controller, OpenAPI + controller tests (update `RestauranteControllerTest`) | delegated | [x] | 2ccd0b2 |
+| T4 | Integration: happy path (login + `/auth/me`), email dup -> 409 + no restaurant, slug dup -> 400 + no user | delegated | [~] written + compiled, NOT executed (no Postgres) | (this commit) |
 | T5 | Docs: `docs/progress/2026-10-16-crear-restaurante-con-administrador.md` | delegated | [ ] | |
 
 ## Acceptance criteria
@@ -70,6 +70,10 @@ Platform); product owner decided restaurant and owner are created together.
 - T3 RED: `./mvnw -q test -Dtest='RestauranteControllerTest,RestauranteControllerCrearWebTest'` -> COMPILATION ERROR (`AdministradorRequest`, `AdministradorResumenResponse`, `RestauranteCreadoResponse` missing).
 - T3 GREEN: `./mvnw test -Dtest='RestauranteControllerTest,RestauranteControllerCrearWebTest,CrearRestauranteDemoTest'` -> 30 tests, 0 failures, BUILD SUCCESS
   (`RestauranteControllerCrearWebTest` is a MockMvc standalone test with `GlobalExceptionHandler`: 201 body, 422 `administrador.email|password|nombre|apellido`, 409).
+- T4: `./mvnw -q test-compile` -> OK. `./mvnw test -Dtest='CrearRestauranteConAdministradorIntegracionTest,CrearRestauranteConAdministradorRollbackIntegracionTest'`
+  -> 5 errors, BUILD FAILURE: `Connection to localhost:5433 refused` (Flyway cannot connect; Docker Desktop daemon is not running, no local Postgres).
+  RED/GREEN for T4 NOT observed. Same failure affects every existing `@SpringBootTest` class on this machine. Must be run with
+  `docker compose -f Docker/docker-test-compose.yaml up -d` (or TEST_DB_URL) before merging.
 
 ## Next step
-- T4.
+- T5, then run T4 against Postgres.
