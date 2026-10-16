@@ -48,7 +48,7 @@ Platform); product owner decided restaurant and owner are created together.
 | T1 | Identity: `RegistrarAdministradorRestauranteUseCase` + `RolRestauranteJpaRepository.findByNombre` + unit tests | delegated (writer trigger: 2+ non-trivial files) | [x] | 1169132 |
 | T2 | Tenant: command/result + orchestration in `CrearRestauranteUseCase` + unit tests (update `CrearRestauranteDemoTest`) | delegated | [x] | c243ce9 |
 | T3 | API: request/response DTOs, controller, OpenAPI + controller tests (update `RestauranteControllerTest`) | delegated | [x] | 2ccd0b2 |
-| T4 | Integration: happy path (login + `/auth/me`), email dup -> 409 + no restaurant, slug dup -> 400 + no user | delegated | [~] written + compiled, NOT executed (no Postgres) | 2f508c3 |
+| T4 | Integration: happy path (login + `/auth/me`), email dup -> 409 + no restaurant, slug dup -> 400 + no user | delegated | [x] | 2f508c3 |
 | T5 | Docs: `docs/progress/2026-10-16-crear-restaurante-con-administrador.md` | delegated | [x] | (this commit) |
 
 ## Acceptance criteria
@@ -87,5 +87,12 @@ Platform); product owner decided restaurant and owner are created together.
   - R3-bcrypt-byte-limit (SUGGESTION): 72 is counted in chars, BCrypt limit is 72 bytes (pre-existing in `POST /usuarios` too).
 - The unrelated staged workspace candidate (skills, frontend docs; 70 files) was declined by the user for review.
 
+- T4 executed against Postgres (`docker compose -f Docker/docker-test-compose.yaml up -d`, healthy on 127.0.0.1:5433):
+  `./mvnw test -Dtest='CrearRestauranteConAdministradorIntegracionTest,CrearRestauranteConAdministradorRollbackIntegracionTest'`
+  -> 5 tests, 0 failures, 0 errors, BUILD SUCCESS. GREEN on first run; RED was never observed for T4 (behavior already
+  existed from T1–T3).
+- Full suite: `./mvnw test` -> 283 tests, 0 failures, 0 errors, BUILD SUCCESS.
+
 ## Next step
-- Run T4 and the full suite against Postgres (`docker compose -f Docker/docker-test-compose.yaml up -d`), then push/PR (user decision).
+- Push and open PR (user decision). Tell the front that `administrador` is now required and the 201 body changed.
+- Follow-ups (advisory review findings): DIVE mapping in `RegistrarAdministradorRestauranteUseCase`, BCrypt 72-byte limit.
