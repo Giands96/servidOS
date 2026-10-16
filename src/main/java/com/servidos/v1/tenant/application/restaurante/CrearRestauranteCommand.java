@@ -1,3 +1,6 @@
 package com.servidos.v1.tenant.application.restaurante;
 
-public record CrearRestauranteCommand(String slug, String nombre, String direccion, Long planId, Boolean demo, Integer demoDias) {}
+import com.servidos.v1.identity.application.usuario.CrearAdministradorCommand;
+
+public record CrearRestauranteCommand(String slug, String nombre, String direccion, Long planId, Boolean demo, Integer demoDias,
+                                     CrearAdministradorCommand administrador) {}

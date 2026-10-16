@@ -1,6 +1,6 @@
 # Cambios del backend para el frontend
 
-Fecha: 2026-10-08, actualizado el 2026-10-11. Incluye lo mergeado en [Giands96/servidOS#12](https://github.com/Giands96/servidOS/pull/12) y lo nuevo de la rama `claude/optimistic-ramanujan-hfasob`, que todavía no está en `main`.
+Fecha: 2026-10-08, actualizado el 2026-10-16. Incluye lo mergeado en `main` hasta [Giands96/servidOS#16](https://github.com/Giands96/servidOS/pull/16) y, en §18, lo nuevo de la rama `claude/optimistic-ramanujan-hfasob`, que todavía no está en `main`.
 
 Base de la API: `/api/v1`. Los formatos de error no cambian: siguen siendo `ErrorResponse`, con `status`, `message` y `path`.
 
@@ -25,6 +25,7 @@ Base de la API: `/api/v1`. Los formatos de error no cambian: siguen siendo `Erro
 | 15 | Fechas en hora de Lima | ⚠️ Aclaración | Mostrar `createdAt` sin convertir |
 | 16 | Roles de plataforma: SUPERADMIN, ADMIN y MODERADOR | ⚠️ Cambian los permisos | Panel de plataforma según el rol |
 | 17 | Período mensual con `fechaFin` inclusiva | ⚠️ Cambia la regla | Textos de vencimiento |
+| 18 | El alta de restaurante crea también su dueño | ❌ Rompe | Formulario "Crear restaurante" |
 
 ---
 
@@ -388,6 +389,66 @@ Las suscripciones que ya existen conservan sus fechas.
 
 **Qué tocar:** el texto de vencimiento tiene que decir "vence el {fechaFin}" o "activo hasta el {fechaFin} inclusive". El aviso de §3 ("Tu suscripción termina el {fechaFin}") sigue siendo correcto. Si el front calcula días restantes, `fechaFin − hoy + 1` da los días de acceso que quedan, contando hoy.
 
+## 18. El alta de restaurante crea también su dueño ❌
+
+`POST /restaurantes` (SUPERADMIN o ADMIN) ahora **exige** el objeto `administrador`. En una sola transacción crea el restaurante, su suscripción, el usuario dueño y su membresía ADMINISTRADOR.
+
+```json
+{
+  "slug": "chifa-wa-lok",
+  "nombre": "Chifa Wa Lok",
+  "direccion": "Av. Grau 340",
+  "planId": 3,
+  "demo": true,
+  "demoDias": 14,
+  "administrador": {
+    "nombre": "Rosa",
+    "apellido": "Quispe",
+    "email": "rosa@chifawalok.pe",
+    "password": "********"
+  }
+}
+```
+
+| Campo de `administrador` | Regla |
+|---|---|
+| `nombre` | obligatorio, máximo 100 |
+| `apellido` | obligatorio, máximo 100 |
+| `email` | obligatorio, formato email, máximo 150; único en todo el sistema |
+| `password` | obligatorio, entre 8 y 72 caracteres |
+
+Los mismos límites figuran en `/v3/api-docs` (`AdministradorRequest`).
+
+**Respuesta 201:**
+
+```json
+{
+  "restauranteId": 21,
+  "slug": "chifa-wa-lok",
+  "nombre": "Chifa Wa Lok",
+  "direccion": "Av. Grau 340",
+  "estado": "ACTIVO",
+  "administrador": { "usuarioId": 57, "email": "rosa@chifawalok.pe", "nombre": "Rosa" }
+}
+```
+
+El email vuelve en minúsculas, que es como se guarda y con el que el dueño inicia sesión.
+
+**Errores:**
+
+| Caso | Código | `message` |
+|---|---|---|
+| Slug duplicado, plan inexistente o demo inválida | 400 | los de siempre |
+| Email ya registrado (de cualquier restaurante o de la plataforma, sin importar mayúsculas) | 409 | `"El email ya existe"` |
+| Falta `administrador` o hay un campo inválido | 422 | `"campo: mensaje"`, por ejemplo `"administrador.email: ..."` |
+
+Si hay varios errores a la vez, el orden es: primero los 422 (formato), después el 400 (slug, plan, demo) y por último el 409 (email). Ante cualquier error no se guarda nada.
+
+**Qué tocar:**
+- En el formulario "Crear restaurante", sumar la sección "Administrador del restaurante" (nombre, apellido, email y contraseña, con la confirmación de contraseña solo en el cliente).
+- Mostrar el 409 bajo el campo Email, y los 422 `administrador.*` bajo su campo.
+- El aviso de éxito informa `administrador.email`, el usuario con el que entra el dueño.
+
 ---
 
 ## Checklist para el front
@@ -406,3 +467,4 @@ Las suscripciones que ya existen conservan sus fechas.
 - [ ] Quitar el cambio de plan del tenant; llevarlo al panel de plataforma (§14).
 - [ ] Mostrar las fechas sin convertir zona (§15).
 - [ ] "Listos para salir": usar `listoAt` del backend en lugar del local (§10).
+- [ ] Formulario "Crear restaurante" con la sección Administrador y el manejo de 409 y 422 (§18).

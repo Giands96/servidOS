@@ -1,5 +1,7 @@
 package com.servidos.v1.tenant.application;
 
+import com.servidos.v1.identity.application.usuario.CrearAdministradorCommand;
+import com.servidos.v1.identity.application.usuario.CrearAdministradorRestauranteUseCase;
 import com.servidos.v1.shared.event.EventPublisher;
 import com.servidos.v1.shared.exception.BusinessException;
 import com.servidos.v1.tenant.application.restaurante.CrearRestauranteCommand;
@@ -40,8 +42,12 @@ class CrearRestauranteDemoTest {
     @Mock RestauranteMapper restauranteMapper;
     @Mock SuscripcionMapper suscripcionMapper;
     @Mock EventPublisher eventPublisher;
+    @Mock CrearAdministradorRestauranteUseCase crearAdministrador;
 
     @InjectMocks CrearRestauranteUseCase useCase;
+
+    private static final CrearAdministradorCommand DUENO =
+            new CrearAdministradorCommand("Rosa", "Quispe", "rosa@chifa.pe", "secreto123");
 
     private void baseStubs() {
         when(restauranteRepository.existsBySlug("demo")).thenReturn(false);
@@ -64,7 +70,7 @@ class CrearRestauranteDemoTest {
     @Test
     void demoUsaDiasVariables() {
         baseStubs();
-        useCase.ejecutar(new CrearRestauranteCommand("demo", "Demo", null, 9L, true, 10));
+        useCase.ejecutar(new CrearRestauranteCommand("demo", "Demo", null, 9L, true, 10, DUENO));
         var captor = ArgumentCaptor.forClass(SuscripcionJpaEntity.class);
         org.mockito.Mockito.verify(suscripcionRepository).save(captor.capture());
         assertEquals(LocalDate.now().plusDays(9), captor.getValue().getFechaFin());
@@ -74,7 +80,7 @@ class CrearRestauranteDemoTest {
     @Test
     void sinDemoUsa30Dias() {
         baseStubs();
-        useCase.ejecutar(new CrearRestauranteCommand("demo", "Demo", null, 9L, false, null));
+        useCase.ejecutar(new CrearRestauranteCommand("demo", "Demo", null, 9L, false, null, DUENO));
         var captor = ArgumentCaptor.forClass(SuscripcionJpaEntity.class);
         org.mockito.Mockito.verify(suscripcionRepository).save(captor.capture());
         assertEquals(LocalDate.now().plusMonths(1).minusDays(1), captor.getValue().getFechaFin());
@@ -85,13 +91,32 @@ class CrearRestauranteDemoTest {
     void demoSinDiasFalla() {
         baseStubs();
         assertThrows(BusinessException.class, () ->
-                useCase.ejecutar(new CrearRestauranteCommand("demo", "Demo", null, 9L, true, null)));
+                useCase.ejecutar(new CrearRestauranteCommand("demo", "Demo", null, 9L, true, null, DUENO)));
     }
 
     @Test
     void demoDiasFueraDeRangoFalla() {
         baseStubs();
         assertThrows(BusinessException.class, () ->
-                useCase.ejecutar(new CrearRestauranteCommand("demo", "Demo", null, 9L, true, 45)));
+                useCase.ejecutar(new CrearRestauranteCommand("demo", "Demo", null, 9L, true, 45, DUENO)));
+    }
+
+    /** Se crea el dueño del restaurante recién guardado, con los datos del request. */
+    @Test
+    void creaElDuenoDelRestaurante() {
+        baseStubs();
+        useCase.ejecutar(new CrearRestauranteCommand("demo", "Demo", null, 9L, false, null, DUENO));
+        org.mockito.Mockito.verify(crearAdministrador).validar(DUENO);
+        org.mockito.Mockito.verify(crearAdministrador).ejecutar(5L, DUENO);
+    }
+
+    /** Con datos inválidos (slug, plan, demo) no se valida ni se crea el dueño. */
+    @Test
+    void demoInvalidaNoTocaAlDueno() {
+        baseStubs();
+        assertThrows(BusinessException.class, () ->
+                useCase.ejecutar(new CrearRestauranteCommand("demo", "Demo", null, 9L, true, 45, DUENO)));
+        org.mockito.Mockito.verifyNoInteractions(crearAdministrador);
+        org.mockito.Mockito.verify(restauranteRepository, org.mockito.Mockito.never()).save(any());
     }
 }

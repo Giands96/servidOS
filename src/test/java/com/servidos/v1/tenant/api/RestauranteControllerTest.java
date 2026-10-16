@@ -1,5 +1,7 @@
 package com.servidos.v1.tenant.api;
 
+import com.servidos.v1.tenant.api.dto.AdministradorRequest;
+import com.servidos.v1.tenant.application.restaurante.RestauranteCreado;
 import com.servidos.v1.shared.security.TenantContext;
 import com.servidos.v1.tenant.api.dto.CambiarPlanRequest;
 import com.servidos.v1.tenant.api.dto.CambiarEstadoRestauranteRequest;
@@ -56,13 +58,18 @@ class RestauranteControllerTest {
     }
 
     @Test
-    void crearDemoDelegaYDa201() {
-        when(crearRestauranteUseCase.ejecutar(any())).thenReturn(
+    void crearDemoDelegaYDa201ConElDueno() {
+        when(crearRestauranteUseCase.ejecutar(any())).thenReturn(new RestauranteCreado(
                 Restaurante.builder().restaurante_id(1L).slug("demo").nombre("Demo")
-                        .estado(EstadoRestaurante.ACTIVO).build());
-        var resp = controller.crear(new CrearRestauranteRequest("demo", "Demo", null, 9L, true, 10));
+                        .estado(EstadoRestaurante.ACTIVO).build(),
+                com.servidos.v1.identity.domain.Usuario.builder().usuario_id(57L)
+                        .email("rosa@chifa.pe").nombre("Rosa").build()));
+        var resp = controller.crear(new CrearRestauranteRequest("demo", "Demo", null, 9L, true, 10,
+                new AdministradorRequest("Rosa", "Quispe", "rosa@chifa.pe", "secreto123")));
         assertEquals(HttpStatus.CREATED, resp.getStatusCode());
         assertEquals("demo", resp.getBody().slug());
+        assertEquals(57L, resp.getBody().administrador().usuarioId());
+        assertEquals("rosa@chifa.pe", resp.getBody().administrador().email());
     }
 
     @Test

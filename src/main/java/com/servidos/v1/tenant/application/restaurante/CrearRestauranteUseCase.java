@@ -1,5 +1,7 @@
 package com.servidos.v1.tenant.application.restaurante;
 
+import com.servidos.v1.identity.application.usuario.CrearAdministradorRestauranteUseCase;
+
 import com.servidos.v1.tenant.domain.Restaurante;
 import com.servidos.v1.tenant.domain.Plan;
 import com.servidos.v1.tenant.domain.Suscripcion;
@@ -27,16 +29,25 @@ public class CrearRestauranteUseCase {
     private final RestauranteMapper restauranteMapper;
     private final SuscripcionMapper suscripcionMapper;
     private final EventPublisher eventPublisher;
+    private final CrearAdministradorRestauranteUseCase crearAdministrador;
 
+    /**
+     * Restaurante, suscripción, dueño y su membresía ADMINISTRADOR en una sola transacción.
+     * Todo se valida antes de escribir (slug, plan, demo y email), así un error de datos no
+     * deja nada a medias; si algo falla después, el rollback deshace todo.
+     */
     @Transactional
-    public Restaurante ejecutar(CrearRestauranteCommand cmd) {
+    public RestauranteCreado ejecutar(CrearRestauranteCommand cmd) {
         var plan = validar(cmd);
+        boolean demo = Boolean.TRUE.equals(cmd.demo());
+        int demoDias = demo ? validarDemoDias(cmd.demoDias()) : 0;
+        crearAdministrador.validar(cmd.administrador());
+
         Restaurante domain = Restaurante.crear(cmd.slug(), cmd.nombre(), cmd.direccion());
         var savedR = restauranteRepository.save(restauranteMapper.toEntity(domain));
-        boolean demo = Boolean.TRUE.equals(cmd.demo());
         LocalDate hoy = LocalDate.now();
         LocalDate fechaFin = demo
-                ? Suscripcion.finDeDias(hoy, validarDemoDias(cmd.demoDias()))
+                ? Suscripcion.finDeDias(hoy, demoDias)
                 : Suscripcion.finDeMes(hoy);
         // monto es lo cobrado: una demo es gratis. El período siguiente lo renueva la
         // plataforma y ahí toma el precio de lista.
@@ -44,8 +55,9 @@ public class CrearRestauranteUseCase {
         Suscripcion s = Suscripcion.crear(savedR.getRestauranteId(), plan.getPlanId(),
                 monto, Plan.MONEDA_PEN, hoy, fechaFin);
         suscripcionRepository.save(suscripcionMapper.toEntity(s));
+        var administrador = crearAdministrador.ejecutar(savedR.getRestauranteId(), cmd.administrador());
         eventPublisher.publish(new RestauranteCreadoEvent(savedR.getRestauranteId(), savedR.getSlug()));
-        return restauranteMapper.toDomain(savedR);
+        return new RestauranteCreado(restauranteMapper.toDomain(savedR), administrador);
     }
 
     private int validarDemoDias(Integer demoDias) {

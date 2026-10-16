@@ -1,5 +1,7 @@
 package com.servidos.v1.tenant.api;
 
+import com.servidos.v1.identity.application.usuario.CrearAdministradorCommand;
+import com.servidos.v1.tenant.api.dto.RestauranteCreadoResponse;
 import com.servidos.v1.shared.exception.ErrorResponse;
 import com.servidos.v1.shared.security.TenantContext;
 import com.servidos.v1.tenant.api.dto.CambiarEstadoRestauranteRequest;
@@ -64,18 +66,34 @@ public class RestauranteController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
-    @Operation(summary = "Crear restaurante con plan elegido y demo opcional",
-            description = "planId obligatorio. demo=true exige demoDias (1-30, monto 0); demo=false crea una suscripción de un mes. La fecha_fin es inclusiva.")
+    @Operation(summary = "Crear restaurante con su administrador (dueño)",
+            description = "En una sola transacción crea el restaurante, su suscripción, el usuario dueño y su "
+                    + "membresía ADMINISTRADOR; si algo falla no se guarda nada. planId obligatorio. demo=true "
+                    + "exige demoDias (1-30, monto 0); demo=false crea una suscripción de un mes (fecha_fin "
+                    + "inclusiva). El email del dueño es único en todo el sistema: siempre se crea un usuario "
+                    + "nuevo. La respuesta nunca incluye el password.")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Restaurante creado"),
+            @ApiResponse(responseCode = "201", description = "Restaurante y dueño creados"),
             @ApiResponse(responseCode = "400", description = "Slug duplicado, plan inexistente o demo inválida",
                     content = @io.swagger.v3.oas.annotations.media.Content(
+                            schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "El email del administrador ya existe",
+                    content = @io.swagger.v3.oas.annotations.media.Content(
+                            schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "422", description = "Falta administrador o hay campos inválidos (p. ej. administrador.email)",
+                    content = @io.swagger.v3.oas.annotations.media.Content(
                             schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = ErrorResponse.class)))})
-    public ResponseEntity<RestauranteResponse> crear(@Valid @RequestBody CrearRestauranteRequest request) {
+    public ResponseEntity<RestauranteCreadoResponse> crear(@Valid @RequestBody CrearRestauranteRequest request) {
+        var admin = request.administrador();
         var creado = crearRestauranteUseCase.ejecutar(new CrearRestauranteCommand(
                 request.slug(), request.nombre(), request.direccion(), request.planId(),
-                request.demo(), request.demoDias()));
-        return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(creado));
+                request.demo(), request.demoDias(),
+                new CrearAdministradorCommand(admin.nombre(), admin.apellido(), admin.email(), admin.password())));
+        var r = creado.restaurante();
+        var u = creado.administrador();
+        return ResponseEntity.status(HttpStatus.CREATED).body(new RestauranteCreadoResponse(
+                r.getRestaurante_id(), r.getSlug(), r.getNombre(), r.getDireccion(), r.getEstado(),
+                new RestauranteCreadoResponse.AdministradorCreado(u.getUsuario_id(), u.getEmail(), u.getNombre())));
     }
 
     @GetMapping

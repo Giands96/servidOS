@@ -2,6 +2,76 @@
 
 Cambios relevantes del proyecto, del más reciente al más antiguo.
 
+## 2026-10-16: alta de restaurante junto con su dueño
+
+Pedido por el front (Fase 5, Plataforma). Decisión de producto: el alta crea el restaurante y su dueño juntos.
+
+### Problema
+
+`POST /restaurantes` creaba el restaurante y su suscripción, pero ningún usuario. `POST /usuarios` solo lo usa el ADMINISTRADOR del propio restaurante y no puede otorgar ADMINISTRADOR. Un restaurante creado desde la plataforma no tenía con quién iniciar sesión (en desarrollo se usaba `scripts/sql/crear_admin.sql`).
+
+### Cambios
+
+- **`POST /restaurantes` exige `administrador`** (`nombre`, `apellido`, `email`, `password`). Los largos máximos son los de las columnas de `usuario`: 100, 100 y 150; el password, de 8 a 72 caracteres.
+- **Una sola transacción:** restaurante, suscripción, usuario y membresía ADMINISTRADOR. Si cualquier paso falla, no se guarda nada.
+- **Validación previa:** slug, plan, demo y email se validan antes de escribir.
+- **Usuario siempre nuevo:** el dueño queda ACTIVO, con el password en BCrypt. El email es único en todo el sistema (409 si ya existe, sea de un restaurante o de la plataforma). Nunca se vincula un usuario existente, porque el login resuelve primero la membresía de restaurante.
+- **Respuesta 201:** `RestauranteCreadoResponse`, igual que `RestauranteResponse` más `administrador: {usuarioId, email, nombre}`. Los demás endpoints siguen devolviendo `RestauranteResponse` sin cambios.
+- **Password protegido:** nunca se devuelve. Los records que lo transportan (`AdministradorRequest`, `CrearAdministradorCommand`) lo ocultan en `toString()`, por si alguien los registra en un log.
+- **Dónde vive la lógica:** el dueño lo crea `CrearAdministradorRestauranteUseCase` (módulo `identity`), que `CrearRestauranteUseCase` llama dentro de su transacción. Nuevo `RolRestauranteJpaRepository.findByNombre`.
+
+### Tests
+
+- `CrearRestauranteConDuenoIntegracionTest`, por HTTP contra Postgres y sin transacción de test, para comprobar el rollback real:
+  - alta feliz, con login del dueño y `/auth/me` que devuelve su restaurante y el rol ADMINISTRADOR;
+  - email repetido (también en mayúsculas): 409 y no se crea el restaurante;
+  - slug repetido: 400 y no se crea el usuario;
+  - sin `administrador`, o con `administrador.email` inválido: 422;
+  - falla al crear el dueño después de guardar el restaurante: no queda ni el restaurante ni la suscripción. Comprobado con mutación: sin `@Transactional`, este test falla.
+  - Además verifica que ni la respuesta ni los logs contienen el password.
+- `CrearRestauranteDemoTest` suma dos casos: se crea el dueño del restaurante guardado, y con una demo inválida no se toca al dueño.
+- **Resultado:** 281 tests en verde.
+
+## 2026-10-11: roles de plataforma y duración de las suscripciones
+
+PR: [Giands96/servidOS#16](https://github.com/Giands96/servidOS/pull/16)
+
+### Reglas de negocio definidas
+
+| Situación | Regla |
+|---|---|
+| SUPERADMIN y ADMIN | Las mismas funciones (crear y operar restaurantes, crear usuarios de plataforma y cambiarles el rol). Solo SUPERADMIN crea ADMINs |
+| Jerarquía | Cada rol solo da roles menores al suyo y solo gestiona usuarios con un rol menor; nadie crea un SUPERADMIN ni le cambia el rol a uno |
+| MODERADOR | Consulta restaurantes y renueva suscripciones |
+| Período pagado | Un mes calendario |
+| `fecha_fin` | Inclusiva: el período termina el día anterior al mismo número del mes siguiente |
+
+### Roles de plataforma
+
+- Listar y ver restaurantes, y ver su suscripción: SUPERADMIN, ADMIN y MODERADOR.
+- Renovar: SUPERADMIN, ADMIN y MODERADOR.
+- Cambiar plan y suspender o reactivar: SUPERADMIN y ADMIN.
+- **Nuevo `POST /usuarios/plataforma`** (SUPERADMIN y ADMIN): SUPERADMIN crea ADMIN o MODERADOR, y ADMIN solo MODERADOR. Antes no había forma de crear usuarios de plataforma por la API.
+- Asignar un rol de plataforma: además de no poder dar un rol igual o superior al propio, ahora tampoco se puede cambiar el rol de alguien con un rol igual o superior. Un ADMIN no puede degradar a otro ADMIN, y a un SUPERADMIN nadie le cambia el rol.
+- `RolNombrePlataforma.puedeGestionar()` concentra la regla de jerarquía; la usan el alta y la asignación.
+
+### Duración de las suscripciones
+
+- Antes, el alta sin demo daba 30 días, mientras que renovar y cambiar de plan daban un mes. Además, cada período regalaba un día: `fecha_fin` es inclusiva y la renovación arranca al día siguiente, así que la fecha de cobro se corría un día por mes.
+- Ahora `Suscripcion.finDeMes()` y `Suscripcion.finDeDias()` calculan todos los períodos: un mes calendario termina el día anterior (11/10 → 10/11), y un demo de N días da N días.
+- Las suscripciones existentes conservan sus fechas.
+
+### Tests
+
+- Nuevos: `CrearUsuarioPlataformaUseCaseTest` y `SuscripcionPeriodoTest` (doce renovaciones encadenadas cobran el mismo día).
+- Tres casos nuevos en `AsignarRolPlataformaTest`.
+- Actualizados con las fechas nuevas: `CrearRestauranteDemoTest`, `RenovarSuscripcionUseCaseTest` y `CambiarPlanHardenTest`.
+- **Resultado:** 273 tests en verde.
+
+### Pendiente
+
+- Un período que empieza un 29, 30 o 31 se acorta en los meses más cortos, y desde ahí la fecha de cobro queda en ese día menor. Por ejemplo, 31/01 → 27/02, y la siguiente renovación arranca el 28/02.
+
 ## 2026-10-09: tablero de cocina en vivo, listado de pedidos y limpieza de permisos
 
 PRs: [Giands96/servidOS#13](https://github.com/Giands96/servidOS/pull/13), [Giands96/servidOS#14](https://github.com/Giands96/servidOS/pull/14) y [Giands96/servidOS#15](https://github.com/Giands96/servidOS/pull/15)
