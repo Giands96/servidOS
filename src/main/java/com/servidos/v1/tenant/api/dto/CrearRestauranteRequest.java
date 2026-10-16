@@ -1,5 +1,6 @@
 package com.servidos.v1.tenant.api.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -13,4 +14,5 @@ public record CrearRestauranteRequest(
         @Size(max = 255) String direccion,
         @NotNull Long planId,
         Boolean demo,
-        @Min(1) @Max(30) Integer demoDias) {}
+        @Min(1) @Max(30) Integer demoDias,
+        @NotNull @Valid AdministradorRequest administrador) {}

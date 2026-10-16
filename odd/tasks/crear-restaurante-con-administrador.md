@@ -46,8 +46,8 @@ Platform); product owner decided restaurant and owner are created together.
 | ID | Task | Route | Status | Commit |
 |----|------|-------|--------|--------|
 | T1 | Identity: `RegistrarAdministradorRestauranteUseCase` + `RolRestauranteJpaRepository.findByNombre` + unit tests | delegated (writer trigger: 2+ non-trivial files) | [x] | 1169132 |
-| T2 | Tenant: command/result + orchestration in `CrearRestauranteUseCase` + unit tests (update `CrearRestauranteDemoTest`) | delegated | [x] | (this commit) |
-| T3 | API: request/response DTOs, controller, OpenAPI + controller tests (update `RestauranteControllerTest`) | delegated | [ ] | |
+| T2 | Tenant: command/result + orchestration in `CrearRestauranteUseCase` + unit tests (update `CrearRestauranteDemoTest`) | delegated | [x] | c243ce9 |
+| T3 | API: request/response DTOs, controller, OpenAPI + controller tests (update `RestauranteControllerTest`) | delegated | [x] | (this commit) |
 | T4 | Integration: happy path (login + `/auth/me`), email dup -> 409 + no restaurant, slug dup -> 400 + no user | delegated | [ ] | |
 | T5 | Docs: `docs/progress/2026-10-16-crear-restaurante-con-administrador.md` | delegated | [ ] | |
 
@@ -66,7 +66,10 @@ Platform); product owner decided restaurant and owner are created together.
 - T1 GREEN: `./mvnw test -Dtest='RegistrarAdministradorRestauranteUseCaseTest,CrearUsuarioSeguridadTest'` -> 15 tests, 0 failures, BUILD SUCCESS.
 - T2 RED: `./mvnw -q test -Dtest=CrearRestauranteDemoTest` -> COMPILATION ERROR (7-arg `CrearRestauranteCommand`, `RestauranteCreado` missing).
 - T2 GREEN: `./mvnw test -Dtest='CrearRestauranteDemoTest,RestauranteControllerTest,RegistrarAdministradorRestauranteUseCaseTest'` -> 32 tests, 0 failures, BUILD SUCCESS.
-- T2 note: `RestauranteController.crear` passes `administrador = null` as a transitional compile fix (marked TODO(T3)); T3 wires the request.
+- T2 note: `RestauranteController.crear` passed `administrador = null` as a transitional compile fix (TODO(T3)); T3 wires the request and removes it.
+- T3 RED: `./mvnw -q test -Dtest='RestauranteControllerTest,RestauranteControllerCrearWebTest'` -> COMPILATION ERROR (`AdministradorRequest`, `AdministradorResumenResponse`, `RestauranteCreadoResponse` missing).
+- T3 GREEN: `./mvnw test -Dtest='RestauranteControllerTest,RestauranteControllerCrearWebTest,CrearRestauranteDemoTest'` -> 30 tests, 0 failures, BUILD SUCCESS
+  (`RestauranteControllerCrearWebTest` is a MockMvc standalone test with `GlobalExceptionHandler`: 201 body, 422 `administrador.email|password|nombre|apellido`, 409).
 
 ## Next step
-- T3.
+- T4.

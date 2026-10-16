@@ -1,11 +1,17 @@
 package com.servidos.v1.tenant.api;
 
+import com.servidos.v1.identity.application.usuario.RegistrarAdministradorRestauranteCommand;
+import com.servidos.v1.identity.domain.Usuario;
 import com.servidos.v1.shared.security.TenantContext;
+import com.servidos.v1.tenant.api.dto.AdministradorRequest;
+import com.servidos.v1.tenant.api.dto.AdministradorResumenResponse;
+import com.servidos.v1.tenant.api.dto.RestauranteCreadoResponse;
 import com.servidos.v1.tenant.api.dto.CambiarPlanRequest;
 import com.servidos.v1.tenant.api.dto.CambiarEstadoRestauranteRequest;
 import com.servidos.v1.tenant.api.dto.CrearRestauranteRequest;
 import com.servidos.v1.tenant.api.dto.RenovarSuscripcionRequest;
 import com.servidos.v1.tenant.application.restaurante.CambiarEstadoRestauranteUseCase;
+import com.servidos.v1.tenant.application.restaurante.CrearRestauranteCommand;
 import com.servidos.v1.tenant.application.restaurante.CrearRestauranteUseCase;
 import com.servidos.v1.tenant.application.restaurante.ListarRestaurantesUseCase;
 import com.servidos.v1.tenant.application.restaurante.ObtenerRestauranteUseCase;
@@ -20,13 +26,16 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -60,10 +69,41 @@ class RestauranteControllerTest {
     void crearDemoDelegaYDa201() {
         when(crearRestauranteUseCase.ejecutar(any())).thenReturn(new RestauranteCreado(
                 Restaurante.builder().restaurante_id(1L).slug("demo").nombre("Demo")
-                        .estado(EstadoRestaurante.ACTIVO).build(), null));
-        var resp = controller.crear(new CrearRestauranteRequest("demo", "Demo", null, 9L, true, 10));
+                        .estado(EstadoRestaurante.ACTIVO).build(),
+                Usuario.builder().usuario_id(77L).nombre("Ana").email("ana@demo.pe").build()));
+        var resp = controller.crear(new CrearRestauranteRequest("demo", "Demo", null, 9L, true, 10,
+                new AdministradorRequest("Ana", "Paz", "ana@demo.pe", "secreta123")));
         assertEquals(HttpStatus.CREATED, resp.getStatusCode());
         assertEquals("demo", resp.getBody().slug());
+    }
+
+    @Test
+    void crearMapeaElAdministradorAlComandoYResponderSoloConSuResumen() {
+        when(crearRestauranteUseCase.ejecutar(any())).thenReturn(new RestauranteCreado(
+                Restaurante.builder().restaurante_id(5L).slug("demo").nombre("Demo").direccion("Av. Lima 123")
+                        .estado(EstadoRestaurante.ACTIVO).build(),
+                Usuario.builder().usuario_id(77L).nombre("Ana").apellido("Paz").email("ana@demo.pe")
+                        .password_hash("no-debe-salir").build()));
+
+        var resp = controller.crear(new CrearRestauranteRequest("demo", "Demo", "Av. Lima 123", 9L, false, null,
+                new AdministradorRequest("Ana", "Paz", "ana@demo.pe", "secreta123")));
+
+        var captor = ArgumentCaptor.forClass(CrearRestauranteCommand.class);
+        verify(crearRestauranteUseCase).ejecutar(captor.capture());
+        assertEquals(new RegistrarAdministradorRestauranteCommand("Ana", "Paz", "ana@demo.pe", "secreta123"),
+                captor.getValue().administrador());
+
+        var body = resp.getBody();
+        assertEquals(5L, body.restauranteId());
+        assertEquals(77L, body.administrador().usuarioId());
+        assertEquals("ana@demo.pe", body.administrador().email());
+        assertEquals("Ana", body.administrador().nombre());
+        var campos = java.util.Arrays.stream(RestauranteCreadoResponse.class.getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName).toList();
+        assertFalse(campos.stream().anyMatch(c -> c.toLowerCase().contains("password")));
+        var camposAdmin = java.util.Arrays.stream(AdministradorResumenResponse.class.getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName).toList();
+        assertEquals(java.util.List.of("usuarioId", "email", "nombre"), camposAdmin);
     }
 
     @Test
