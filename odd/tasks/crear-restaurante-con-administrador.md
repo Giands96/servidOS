@@ -48,8 +48,8 @@ Platform); product owner decided restaurant and owner are created together.
 | T1 | Identity: `RegistrarAdministradorRestauranteUseCase` + `RolRestauranteJpaRepository.findByNombre` + unit tests | delegated (writer trigger: 2+ non-trivial files) | [x] | 1169132 |
 | T2 | Tenant: command/result + orchestration in `CrearRestauranteUseCase` + unit tests (update `CrearRestauranteDemoTest`) | delegated | [x] | c243ce9 |
 | T3 | API: request/response DTOs, controller, OpenAPI + controller tests (update `RestauranteControllerTest`) | delegated | [x] | 2ccd0b2 |
-| T4 | Integration: happy path (login + `/auth/me`), email dup -> 409 + no restaurant, slug dup -> 400 + no user | delegated | [~] written + compiled, NOT executed (no Postgres) | (this commit) |
-| T5 | Docs: `docs/progress/2026-10-16-crear-restaurante-con-administrador.md` | delegated | [ ] | |
+| T4 | Integration: happy path (login + `/auth/me`), email dup -> 409 + no restaurant, slug dup -> 400 + no user | delegated | [~] written + compiled, NOT executed (no Postgres) | 2f508c3 |
+| T5 | Docs: `docs/progress/2026-10-16-crear-restaurante-con-administrador.md` | delegated | [x] | (this commit) |
 
 ## Acceptance criteria
 - 201 creates restaurant, subscription, ACTIVO user (BCrypt hash) and ADMINISTRADOR membership; owner can log in and
@@ -74,6 +74,9 @@ Platform); product owner decided restaurant and owner are created together.
   -> 5 errors, BUILD FAILURE: `Connection to localhost:5433 refused` (Flyway cannot connect; Docker Desktop daemon is not running, no local Postgres).
   RED/GREEN for T4 NOT observed. Same failure affects every existing `@SpringBootTest` class on this machine. Must be run with
   `docker compose -f Docker/docker-test-compose.yaml up -d` (or TEST_DB_URL) before merging.
+- Final verification: targeted set (UseCase/Demo/Controller/CrearWeb/CrearUsuarioSeguridad/AuthControllerMe) -> 50 tests, 0 failures, BUILD SUCCESS.
+  Full `./mvnw test` -> 283 tests, 0 failures, 21 errors, all `Connection to localhost:5433 refused` (DB-backed classes, pre-existing and new).
+- T5: `docs/progress/2026-10-16-crear-restaurante-con-administrador.md` created.
 
 ## Next step
-- T5, then run T4 against Postgres.
+- Run T4 and the full suite against Postgres (`docker compose -f Docker/docker-test-compose.yaml up -d`), then push/PR (user decision).
