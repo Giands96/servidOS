@@ -1,12 +1,16 @@
 package com.servidos.v1.tenant.api;
 
+import com.servidos.v1.identity.application.usuario.RegistrarAdministradorRestauranteCommand;
+import com.servidos.v1.identity.domain.Usuario;
 import com.servidos.v1.shared.exception.ErrorResponse;
 import com.servidos.v1.shared.security.TenantContext;
+import com.servidos.v1.tenant.api.dto.AdministradorResumenResponse;
 import com.servidos.v1.tenant.api.dto.CambiarEstadoRestauranteRequest;
 import com.servidos.v1.tenant.api.dto.CambiarPlanRequest;
 import com.servidos.v1.tenant.api.dto.CancelarSuscripcionRequest;
 import com.servidos.v1.tenant.api.dto.CrearRestauranteRequest;
 import com.servidos.v1.tenant.api.dto.RenovarSuscripcionRequest;
+import com.servidos.v1.tenant.api.dto.RestauranteCreadoResponse;
 import com.servidos.v1.tenant.api.dto.RestauranteDashboardResponse;
 import com.servidos.v1.tenant.api.dto.RestauranteResponse;
 import com.servidos.v1.tenant.api.dto.SuscripcionDashboardResponse;
@@ -17,6 +21,7 @@ import com.servidos.v1.tenant.application.restaurante.CambiarEstadoRestauranteUs
 import com.servidos.v1.tenant.application.restaurante.CrearRestauranteUseCase;
 import com.servidos.v1.tenant.application.restaurante.ListarRestaurantesUseCase;
 import com.servidos.v1.tenant.application.restaurante.RestauranteConSuscripcion;
+import com.servidos.v1.tenant.application.restaurante.RestauranteCreado;
 import com.servidos.v1.tenant.application.restaurante.ObtenerRestauranteUseCase;
 import com.servidos.v1.tenant.application.suscripcion.CambiarPlanCommand;
 import com.servidos.v1.tenant.application.suscripcion.CambiarPlanUseCase;
@@ -64,17 +69,31 @@ public class RestauranteController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")
-    @Operation(summary = "Crear restaurante con plan elegido y demo opcional",
-            description = "planId obligatorio. demo=true exige demoDias (1-30, monto 0); demo=false crea una suscripción de un mes. La fecha_fin es inclusiva.")
+    @Operation(summary = "Crear restaurante con su administrador, plan elegido y demo opcional",
+            description = "planId obligatorio. demo=true exige demoDias (1-30, monto 0); demo=false crea una suscripción de un mes. "
+                    + "La fecha_fin es inclusiva. "
+                    + "El objeto administrador es obligatorio: se crea el dueño (rol ADMINISTRADOR) en la misma "
+                    + "transacción, así que si algo falla no queda ni restaurante ni usuario. El email es único en toda "
+                    + "la plataforma. La respuesta nunca incluye la contraseña.")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Restaurante creado"),
+            @ApiResponse(responseCode = "201", description = "Restaurante y administrador creados",
+                    content = @io.swagger.v3.oas.annotations.media.Content(
+                            schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = RestauranteCreadoResponse.class))),
             @ApiResponse(responseCode = "400", description = "Slug duplicado, plan inexistente o demo inválida",
                     content = @io.swagger.v3.oas.annotations.media.Content(
+                            schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Email ya registrado",
+                    content = @io.swagger.v3.oas.annotations.media.Content(
+                            schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "422", description = "Validación Jakarta (@Valid); los campos del dueño llegan como administrador.<campo>",
+                    content = @io.swagger.v3.oas.annotations.media.Content(
                             schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = ErrorResponse.class)))})
-    public ResponseEntity<RestauranteResponse> crear(@Valid @RequestBody CrearRestauranteRequest request) {
+    public ResponseEntity<RestauranteCreadoResponse> crear(@Valid @RequestBody CrearRestauranteRequest request) {
+        var admin = request.administrador();
         var creado = crearRestauranteUseCase.ejecutar(new CrearRestauranteCommand(
                 request.slug(), request.nombre(), request.direccion(), request.planId(),
-                request.demo(), request.demoDias()));
+                request.demo(), request.demoDias(),
+                new RegistrarAdministradorRestauranteCommand(admin.nombre(), admin.apellido(), admin.email(), admin.password())));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(creado));
     }
 
@@ -184,6 +203,14 @@ public class RestauranteController {
     public ResponseEntity<Void> cancelar(@Valid @RequestBody CancelarSuscripcionRequest request) {
         gestionarSuscripcionUseCase.cancelar(TenantContext.getRestauranteId(), request.password());
         return ResponseEntity.ok().build();
+    }
+
+    private RestauranteCreadoResponse toResponse(RestauranteCreado c) {
+        Restaurante r = c.restaurante();
+        Usuario u = c.administrador();
+        return new RestauranteCreadoResponse(r.getRestaurante_id(), r.getSlug(), r.getNombre(),
+                r.getDireccion(), r.getEstado(),
+                new AdministradorResumenResponse(u.getUsuario_id(), u.getEmail(), u.getNombre()));
     }
 
     private RestauranteResponse toResponse(Restaurante r) {

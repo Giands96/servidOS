@@ -1,0 +1,98 @@
+# Feature: create restaurant together with its owner (ADMINISTRADOR)
+
+## Objective
+`POST /api/v1/restaurantes` creates restaurant + subscription + owner user + `usuario_restaurante` membership with role
+`ADMINISTRADOR` in a single transaction, so a restaurant created from the platform can log in.
+
+## Problem / why
+Today the endpoint creates restaurant and subscription only. `POST /api/v1/usuarios` is tenant-scoped and forbids granting
+ADMINISTRADOR, so new restaurants have no login (dev uses `scripts/sql/crear_admin.sql`). Requested by front (Phase 5
+Platform); product owner decided restaurant and owner are created together.
+
+## Scope
+- New required `administrador` object in `CrearRestauranteRequest` (nombre, apellido, email, password).
+- New identity use case that registers the owner inside the caller's transaction (no CurrentUser/tenant checks: the
+  caller is the platform endpoint, already guarded by `@PreAuthorize("hasAnyRole('SUPERADMIN','ADMIN')")`).
+- `CrearRestauranteUseCase` orchestrates both; 201 response adds `administrador { usuarioId, email, nombre }`.
+- OpenAPI docs for 201/400/409/422.
+
+## Constraints
+- No schema/migration change (uses existing `usuario`, `usuario_restaurante`, `rol_restaurante`). Adding a derived query
+  `findByNombre` on `RolRestauranteJpaRepository` is not a DB change.
+- No architecture change: same domain -> application -> infrastructure layering; cross-module call follows the existing
+  precedent (`CrearUsuarioUseCase` already depends on `RestauranteJpaRepository`).
+- Global unique email; never link an existing user (LoginUseCase resolves restaurant membership first).
+- Password never returned nor logged (records with password redact it in `toString`).
+- Do not commit unrelated staged files in the index (commit with explicit pathspecs).
+
+## Decisions
+- Separate `RestauranteCreadoResponse` instead of adding a nullable field to `RestauranteResponse`, because
+  `RestauranteResponse` is also returned by `GET /actual` and `GET /{id}`, which have no owner to show.
+- Email uniqueness is checked before persisting the restaurant and `RestauranteCreadoEvent` is published only after the
+  owner is created, so synchronous listeners never observe a restaurant that will be rolled back.
+- `nombre` gets `@Size(min = 2)` to match `Usuario.crear` (otherwise a 1-char name would be a 400 instead of 422).
+- Max lengths match `usuario` columns: nombre 100, apellido 100, email 150.
+
+## TDD
+- Mode: strict (source: user global config `Strict TDD Mode: enabled`).
+- Runner: `./mvnw test -Dtest=<TestClass>` (Windows: `mvnw.cmd`).
+
+## Delivery
+- Branch: `feat/crear-restaurante-con-administrador`. Strategy: `single-pr` (one cohesive contract change; forecast
+  ~150 production + ~350 test lines). Push/PR are the user's decision.
+- Review: RDD is on (global); assess after each work-unit commit.
+
+## Tasks
+| ID | Task | Route | Status | Commit |
+|----|------|-------|--------|--------|
+| T1 | Identity: `RegistrarAdministradorRestauranteUseCase` + `RolRestauranteJpaRepository.findByNombre` + unit tests | delegated (writer trigger: 2+ non-trivial files) | [x] | 1169132 |
+| T2 | Tenant: command/result + orchestration in `CrearRestauranteUseCase` + unit tests (update `CrearRestauranteDemoTest`) | delegated | [x] | c243ce9 |
+| T3 | API: request/response DTOs, controller, OpenAPI + controller tests (update `RestauranteControllerTest`) | delegated | [x] | 2ccd0b2 |
+| T4 | Integration: happy path (login + `/auth/me`), email dup -> 409 + no restaurant, slug dup -> 400 + no user | delegated | [x] | 2f508c3 |
+| T5 | Docs: `docs/progress/2026-10-16-crear-restaurante-con-administrador.md` | delegated | [x] | (this commit) |
+
+## Acceptance criteria
+- 201 creates restaurant, subscription, ACTIVO user (BCrypt hash) and ADMINISTRADOR membership; owner can log in and
+  `/auth/me` returns their `restauranteId` and role ADMINISTRADOR.
+- Duplicate email -> 409 `"El email ya existe"` and no restaurant persisted.
+- Duplicate slug -> 400 and no user persisted.
+- Missing/invalid `administrador` -> 422 with `administrador.<campo>: <mensaje>`.
+- Response and logs never contain the password.
+
+## Progress / evidence
+- Baseline: `./mvnw -q test -Dtest='CrearRestauranteDemoTest,RestauranteControllerTest,CrearUsuarioSeguridadTest'` -> exit 0, all green
+  (the `A+B+C` selector from the brief is not valid for surefire; comma-separated works).
+- T1 RED: `./mvnw -q test -Dtest=RegistrarAdministradorRestauranteUseCaseTest` -> COMPILATION ERROR (command/use case/`findByNombre` missing).
+- T1 GREEN: `./mvnw test -Dtest='RegistrarAdministradorRestauranteUseCaseTest,CrearUsuarioSeguridadTest'` -> 15 tests, 0 failures, BUILD SUCCESS.
+- T2 RED: `./mvnw -q test -Dtest=CrearRestauranteDemoTest` -> COMPILATION ERROR (7-arg `CrearRestauranteCommand`, `RestauranteCreado` missing).
+- T2 GREEN: `./mvnw test -Dtest='CrearRestauranteDemoTest,RestauranteControllerTest,RegistrarAdministradorRestauranteUseCaseTest'` -> 32 tests, 0 failures, BUILD SUCCESS.
+- T2 note: `RestauranteController.crear` passed `administrador = null` as a transitional compile fix (TODO(T3)); T3 wires the request and removes it.
+- T3 RED: `./mvnw -q test -Dtest='RestauranteControllerTest,RestauranteControllerCrearWebTest'` -> COMPILATION ERROR (`AdministradorRequest`, `AdministradorResumenResponse`, `RestauranteCreadoResponse` missing).
+- T3 GREEN: `./mvnw test -Dtest='RestauranteControllerTest,RestauranteControllerCrearWebTest,CrearRestauranteDemoTest'` -> 30 tests, 0 failures, BUILD SUCCESS
+  (`RestauranteControllerCrearWebTest` is a MockMvc standalone test with `GlobalExceptionHandler`: 201 body, 422 `administrador.email|password|nombre|apellido`, 409).
+- T4: `./mvnw -q test-compile` -> OK. `./mvnw test -Dtest='CrearRestauranteConAdministradorIntegracionTest,CrearRestauranteConAdministradorRollbackIntegracionTest'`
+  -> 5 errors, BUILD FAILURE: `Connection to localhost:5433 refused` (Flyway cannot connect; Docker Desktop daemon is not running, no local Postgres).
+  RED/GREEN for T4 NOT observed. Same failure affects every existing `@SpringBootTest` class on this machine. Must be run with
+  `docker compose -f Docker/docker-test-compose.yaml up -d` (or TEST_DB_URL) before merging.
+- Final verification: targeted set (UseCase/Demo/Controller/CrearWeb/CrearUsuarioSeguridad/AuthControllerMe) -> 50 tests, 0 failures, BUILD SUCCESS.
+  Full `./mvnw test` -> 283 tests, 0 failures, 21 errors, all `Connection to localhost:5433 refused` (DB-backed classes, pre-existing and new).
+- T5: `docs/progress/2026-10-16-crear-restaurante-con-administrador.md` created.
+- Parent spot check: targeted set re-run -> exit 0.
+- RDD: assess medium (`slice_budget_reached`, range main..666e76a); consent granted; lens review-reliability ->
+  approved, acknowledged (lineage `review-27ef0648634a40dc`, authority burned). Advisory (non-blocking) findings, follow-ups:
+  - R3-integration-not-executed (WARNING): run T4 against Postgres before merge.
+  - R3-dive-misattributed (WARNING): `saveAndFlush` flushes the whole context; a non-email integrity violation (e.g. the
+    subscription) would be reported as 409 "El email ya existe". Option: flush before registering the owner or inspect the
+    violated constraint name.
+  - R3-bcrypt-byte-limit (SUGGESTION): 72 is counted in chars, BCrypt limit is 72 bytes (pre-existing in `POST /usuarios` too).
+- The unrelated staged workspace candidate (skills, frontend docs; 70 files) was declined by the user for review.
+
+- T4 executed against Postgres (`docker compose -f Docker/docker-test-compose.yaml up -d`, healthy on 127.0.0.1:5433):
+  `./mvnw test -Dtest='CrearRestauranteConAdministradorIntegracionTest,CrearRestauranteConAdministradorRollbackIntegracionTest'`
+  -> 5 tests, 0 failures, 0 errors, BUILD SUCCESS. GREEN on first run; RED was never observed for T4 (behavior already
+  existed from T1–T3).
+- Full suite: `./mvnw test` -> 283 tests, 0 failures, 0 errors, BUILD SUCCESS.
+
+## Next step
+- Push and open PR (user decision). Tell the front that `administrador` is now required and the 201 body changed.
+- Follow-ups (advisory review findings): DIVE mapping in `RegistrarAdministradorRestauranteUseCase`, BCrypt 72-byte limit.
