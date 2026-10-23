@@ -57,8 +57,8 @@ changes `mesa.estado`.
 | T1 | V14 migration + `Mesa` domain/JPA/mapper/repository + create/list/update use cases + unit tests | delegated (writer trigger: 2+ non-trivial files) | [x] | 10d57f0 |
 | T2 | Ocupar / liberar use cases with row lock and open-orders query + unit tests | delegated | [x] | 393e157 |
 | T3 | `MesaController` + DTOs + OpenAPI + controller tests | delegated | [x] | db060d2 |
-| T4 | Order integration: auto-occupy in `CrearPedidoUseCase`; release listener on paid/delivered/cancelled + tests | delegated | [x] | (hash in final bookkeeping commit) |
-| T5 | Integration test: create table, occupy, 2 orders, deliver + pay both -> `LIBRE`; partial -> stays `OCUPADA` | delegated | [ ] | |
+| T4 | Order integration: auto-occupy in `CrearPedidoUseCase`; release listener on paid/delivered/cancelled + tests | delegated | [x] | 1bbc70b |
+| T5 | Integration test: create table, occupy, 2 orders, deliver + pay both -> `LIBRE`; partial -> stays `OCUPADA` | delegated | [x] | (hash in final bookkeeping commit) |
 | T6 | Docs: `docs/progress/2026-10-23-gestion-mesas.md` | delegated | [ ] | |
 
 ## Acceptance criteria
@@ -88,6 +88,8 @@ changes `mesa.estado`.
 - Findings that shaped the design: (1) `PedidoEntregadoEvent` existed as an empty class that nothing published, and delivery only emitted the generic `PedidoEstadoCambiadoEvent`; it now carries `pedidoId`/`restauranteId` and `CambiarEstadoPedidoUseCase` publishes it on ENTREGADO (same pattern as `PedidoCanceladoEvent`). (2) A MESA order reaches ENTREGADO via PENDIENTE -> EN_PREPARACION -> LISTO -> ENTREGADO, so "delivered" is the terminal state and the open-order rule stands. (3) The refund path cancels undelivered orders through `CambiarEstadoPedidoUseCase`, so `PedidoCanceladoEvent` also covers refunds.
 - `existsMesaEnRestaurante` (native query in `PedidoJpaRepository`) was removed; the check now lives in `AsignarMesaAPedidoUseCase` (`MesaJpaRepository`), which `CrearPedidoUseCase` calls before saving the pedido. Non-MESA orders that carry a `mesaId` still get the same-tenant check but do not occupy the table.
 - The release listener is a synchronous `@EventListener` inside the originating transaction (same as `CancelarPedidoAlReembolsarListener`), so the table lock is taken before commit and a failure rolls the operation back; the use case flushes pending pedido changes before counting open orders.
+- T5 has no new production code (test-only task), so there is no natural RED. Mutation check instead: with the `@EventListener` removed from `LiberarMesaAlCerrarPedidoListener.on(PagoRegistradoEvent)`, `./mvnw -q test -Dtest='MesaCicloCompletoIntegracionTest'` -> exit 1, 3 of 10 failing (`cobrarYEntregarTodosLosPedidosLiberaLaMesa`, `unPedidoEntregadoYReembolsadoNoRetieneLaMesa`, `laMesaLiberadaSeVuelveAUsar`); the annotation was restored (no diff against T4 in `src/main`).
+- T5 GREEN: same command -> exit 0, 10 tests, 0 failures. Covers: deliver+pay both -> LIBRE; reverse order (pay first, deliver after) -> LIBRE; one order unfinished -> stays OCUPADA with comensales kept; delivered-unpaid and paid-undelivered keep the table OCUPADA; delivered+refunded does not hold the table; refund of an undelivered order cancels it and frees the table; manual liberar only without open orders; freed table is reusable; DELIVERY/RECOJO orders (no table) pay, deliver and cancel without errors.
 
 ## Next step
-- T5.
+- Full suite, then T6.
