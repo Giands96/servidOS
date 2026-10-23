@@ -58,8 +58,8 @@ changes `mesa.estado`.
 | T2 | Ocupar / liberar use cases with row lock and open-orders query + unit tests | delegated | [x] | 393e157 |
 | T3 | `MesaController` + DTOs + OpenAPI + controller tests | delegated | [x] | db060d2 |
 | T4 | Order integration: auto-occupy in `CrearPedidoUseCase`; release listener on paid/delivered/cancelled + tests | delegated | [x] | 1bbc70b |
-| T5 | Integration test: create table, occupy, 2 orders, deliver + pay both -> `LIBRE`; partial -> stays `OCUPADA` | delegated | [x] | (hash in final bookkeeping commit) |
-| T6 | Docs: `docs/progress/2026-10-23-gestion-mesas.md` | delegated | [ ] | |
+| T5 | Integration test: create table, occupy, 2 orders, deliver + pay both -> `LIBRE`; partial -> stays `OCUPADA` | delegated | [x] | 91609c2 |
+| T6 | Docs: `docs/progress/2026-10-23-gestion-mesas.md` | delegated | [x] | no commit for the file: `docs/` is git-ignored (local only); this document's final update is the closing `docs(odd)` commit |
 
 ## Acceptance criteria
 - Admin creates a table (`numero` > 0 unique per restaurant -> duplicate is rejected, `capacidad` > 0) and lists them.
@@ -90,6 +90,13 @@ changes `mesa.estado`.
 - The release listener is a synchronous `@EventListener` inside the originating transaction (same as `CancelarPedidoAlReembolsarListener`), so the table lock is taken before commit and a failure rolls the operation back; the use case flushes pending pedido changes before counting open orders.
 - T5 has no new production code (test-only task), so there is no natural RED. Mutation check instead: with the `@EventListener` removed from `LiberarMesaAlCerrarPedidoListener.on(PagoRegistradoEvent)`, `./mvnw -q test -Dtest='MesaCicloCompletoIntegracionTest'` -> exit 1, 3 of 10 failing (`cobrarYEntregarTodosLosPedidosLiberaLaMesa`, `unPedidoEntregadoYReembolsadoNoRetieneLaMesa`, `laMesaLiberadaSeVuelveAUsar`); the annotation was restored (no diff against T4 in `src/main`).
 - T5 GREEN: same command -> exit 0, 10 tests, 0 failures. Covers: deliver+pay both -> LIBRE; reverse order (pay first, deliver after) -> LIBRE; one order unfinished -> stays OCUPADA with comensales kept; delivered-unpaid and paid-undelivered keep the table OCUPADA; delivered+refunded does not hold the table; refund of an undelivered order cancels it and frees the table; manual liberar only without open orders; freed table is reusable; DELIVERY/RECOJO orders (no table) pay, deliver and cancel without errors.
+- Full suite: `./mvnw -q test` -> exit 0; surefire aggregate 70 classes, 387 tests, 0 errors, 0 failures, 0 skipped.
+- T6: `docs/progress/2026-10-23-gestion-mesas.md` written (results, decisions, files, how to test, trade-offs, pending). `docs/` is in `.gitignore` (and nothing under it is tracked), so the file is local only and was not force-added.
+
+## Open questions / pending (not decided here)
+- A delivered order that is never paid holds its table forever (manual `liberar` rejects it by design; an ENTREGADO order cannot be cancelled). Product decision needed on how to close it.
+- Real concurrency of the table lock has no automated test (needs committed data and two threads).
+- Push / PR: the user's decision.
 
 ## Next step
-- Full suite, then T6.
+- User review, then push and PR (squash merge).
