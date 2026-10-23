@@ -19,12 +19,14 @@ public interface PedidoJpaRepository extends JpaRepository<PedidoJpaEntity, Long
     /**
      * Pedidos "abiertos" de una mesa: los que todavía retienen a sus comensales. Es todo pedido
      * no cancelado salvo el ENTREGADO que ya se saldó (pago PAGADO o REEMBOLSADO). Un pedido
-     * cobrado pero aún sin entregar sigue abierto: el cliente espera su comida. Native porque
+     * cobrado pero aún sin entregar sigue abierto: el cliente espera su comida. Solo cuentan los
+     * pedidos MESA: un DELIVERY/RECOJO puede llevar mesa_id pero no la ocupa. Native porque
      * mira la tabla pago sin acoplar ordering a la entidad de payment.
      */
     @Query(value = """
             SELECT count(*) FROM pedido p
             WHERE p.mesa_id = :mesaId AND p.restaurante_id = :restauranteId
+              AND p.tipo_pedido = 'MESA'
               AND p.estado <> 'CANCELADO'
               AND NOT (p.estado = 'ENTREGADO' AND EXISTS (
                     SELECT 1 FROM pago pg

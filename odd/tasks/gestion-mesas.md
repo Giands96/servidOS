@@ -103,8 +103,14 @@ changes `mesa.estado`.
   - `R3-no-http-level-tests` (SUGGESTION): controller tests call methods directly; no MockMvc test for 401/403/422/400
     and invalid `estado` query values.
 
+- Fix `R3-open-orders-ignores-tipo` (requested by the user): `contarAbiertosEnMesa` now filters `tipo_pedido = 'MESA'`.
+  RED: `./mvnw -q test -Dtest='MesaOcuparLiberarIntegracionTest'` -> exit 1 (`losPedidosDeliveryYRecojoConMesaNoRetienenLaMesa`
+  expected 0 but was 2; `liberarManualIgnoraPedidosNoMesaAbiertos` BusinessException). GREEN:
+  `./mvnw -q test -Dtest='MesaOcuparLiberarIntegracionTest,MesaPedidoIntegracionTest,MesaCicloCompletoIntegracionTest,LiberarMesaUseCaseTest,LiberarMesaAlCerrarPedidoUseCaseTest'`
+  -> exit 0. Full suite `./mvnw -q test` -> exit 0, 389 tests, 0 failures, 0 errors, 0 skipped.
+
 ## Open questions / pending (not decided here)
-- Review findings above (follow-up work, not part of this candidate).
+- Review findings `R3-historical-orders-pin-tables` and `R3-no-http-level-tests` (follow-up work).
 - A delivered order that is never paid holds its table forever (manual `liberar` rejects it by design; an ENTREGADO order cannot be cancelled). Product decision needed on how to close it.
 - Real concurrency of the table lock has no automated test (needs committed data and two threads).
 - Push / PR: the user's decision.

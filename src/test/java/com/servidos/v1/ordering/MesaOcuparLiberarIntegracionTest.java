@@ -82,11 +82,15 @@ class MesaOcuparLiberarIntegracionTest {
     }
 
     private Long pedidoEnMesa(EstadoPedido estado, EstadoPago pago) {
+        return pedidoEnMesa(TipoPedido.MESA, estado, pago);
+    }
+
+    private Long pedidoEnMesa(TipoPedido tipo, EstadoPedido estado, EstadoPago pago) {
         var p = new PedidoJpaEntity();
         p.setRestauranteId(restauranteId);
         p.setUsuarioId(usuarioId);
         p.setMesaId(mesaId);
-        p.setTipoPedido(TipoPedido.MESA);
+        p.setTipoPedido(tipo);
         p.setEstado(estado);
         p.setTotal(new BigDecimal("50.00"));
         Long pedidoId = pedidoRepository.saveAndFlush(p).getPedidoId();
@@ -155,6 +159,22 @@ class MesaOcuparLiberarIntegracionTest {
 
         assertEquals(1L, pedidoRepository.contarAbiertosEnMesa(mesaId, restauranteId));
         assertEquals(0L, pedidoRepository.contarAbiertosEnMesa(mesaId, otroRestauranteId));
+    }
+
+    @Test
+    void losPedidosDeliveryYRecojoConMesaNoRetienenLaMesa() {
+        pedidoEnMesa(TipoPedido.DELIVERY, EstadoPedido.EN_ENTREGA, null);
+        pedidoEnMesa(TipoPedido.RECOJO, EstadoPedido.PENDIENTE, null);
+
+        assertEquals(0L, pedidoRepository.contarAbiertosEnMesa(mesaId, restauranteId));
+    }
+
+    @Test
+    void liberarManualIgnoraPedidosNoMesaAbiertos() {
+        ocuparMesa.ejecutar(new OcuparMesaCommand(mesaId, 2), restauranteId);
+        pedidoEnMesa(TipoPedido.DELIVERY, EstadoPedido.PENDIENTE, null);
+
+        assertEquals(EstadoMesa.LIBRE, liberarMesa.ejecutar(mesaId, restauranteId).getEstado());
     }
 
     @Test
