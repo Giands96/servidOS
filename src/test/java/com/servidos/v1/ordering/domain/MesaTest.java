@@ -104,6 +104,26 @@ class MesaTest {
     }
 
     @Test
+    void ocuparPorPedidoSientaLaMesaLibreSinComensales() {
+        var mesa = Mesa.crear(10L, 5, 4);
+
+        mesa.ocuparPorPedido();
+
+        assertEquals(EstadoMesa.OCUPADA, mesa.getEstado());
+        assertNull(mesa.getComensales());
+    }
+
+    @Test
+    void ocuparPorPedidoNoTocaUnaMesaYaOcupada() {
+        var mesa = ocupada(3);
+
+        mesa.ocuparPorPedido();
+
+        assertEquals(EstadoMesa.OCUPADA, mesa.getEstado());
+        assertEquals(3, mesa.getComensales());
+    }
+
+    @Test
     void liberarDejaLaMesaLibreYSinComensales() {
         var mesa = ocupada(3);
 

@@ -56,8 +56,8 @@ changes `mesa.estado`.
 |----|------|-------|--------|--------|
 | T1 | V14 migration + `Mesa` domain/JPA/mapper/repository + create/list/update use cases + unit tests | delegated (writer trigger: 2+ non-trivial files) | [x] | 10d57f0 |
 | T2 | Ocupar / liberar use cases with row lock and open-orders query + unit tests | delegated | [x] | 393e157 |
-| T3 | `MesaController` + DTOs + OpenAPI + controller tests | delegated | [x] | (hash in final bookkeeping commit) |
-| T4 | Order integration: auto-occupy in `CrearPedidoUseCase`; release listener on paid/delivered/cancelled + tests | delegated | [ ] | |
+| T3 | `MesaController` + DTOs + OpenAPI + controller tests | delegated | [x] | db060d2 |
+| T4 | Order integration: auto-occupy in `CrearPedidoUseCase`; release listener on paid/delivered/cancelled + tests | delegated | [x] | (hash in final bookkeeping commit) |
 | T5 | Integration test: create table, occupy, 2 orders, deliver + pay both -> `LIBRE`; partial -> stays `OCUPADA` | delegated | [ ] | |
 | T6 | Docs: `docs/progress/2026-10-23-gestion-mesas.md` | delegated | [ ] | |
 
@@ -83,6 +83,11 @@ changes `mesa.estado`.
 - T3 RED: `./mvnw -q test -Dtest='MesaControllerTest'` -> COMPILATION ERROR (cannot find symbol: `MesaController`, `CrearMesaRequest`, ...).
 - T3 GREEN: `./mvnw -q test -Dtest='MesaControllerTest,MesaPersistenciaIntegracionTest'` -> exit 0; MesaControllerTest 10 (delegation, tenant, `@PreAuthorize` expressions by reflection, Jakarta validation of the DTOs), MesaPersistenciaIntegracionTest 6 (also proves the full Spring context boots with the new controller). One test showed a 2020 s duration in that run (host stall; re-run of the class alone took 7 s), so it is environmental, not code.
 - Roles: create/update `ADMINISTRADOR`; list `ADMINISTRADOR,RECEPCION,CAJERO,MESERO`; ocupar/liberar `ADMINISTRADOR,RECEPCION,MESERO`. Errors: `BusinessException` -> 400 (duplicate, cross-tenant "Mesa no encontrada", rule violations), `@Valid` -> 422.
+- T4 RED: `./mvnw -q test -Dtest='MesaTest,AsignarMesaAPedidoUseCaseTest,LiberarMesaAlCerrarPedidoUseCaseTest,LiberarMesaAlCerrarPedidoListenerTest,CrearPedidoUseCaseTest,CambiarEstadoPedidoUseCaseTest,MesaPedidoIntegracionTest'` -> COMPILATION ERROR (cannot find symbol: `AsignarMesaAPedidoUseCase`, `LiberarMesaAlCerrarPedidoUseCase/Listener`, `PedidoEntregadoEvent` constructor, ...).
+- T4 GREEN: same command plus `CrearPedidoIntegracionTest` -> exit 0; MesaTest 15, AsignarMesaAPedidoUseCaseTest 6, LiberarMesaAlCerrarPedidoUseCaseTest 5, LiberarMesaAlCerrarPedidoListenerTest 3, CrearPedidoUseCaseTest 8, CambiarEstadoPedidoUseCaseTest 13, MesaPedidoIntegracionTest 6 (real Postgres: first MESA order occupies, orders share an OCUPADA table, cancel of the last order frees it and clears comensales, cancel with another open order keeps it OCUPADA, cross-tenant table rejected), CrearPedidoIntegracionTest 1; 0 failures.
+- Findings that shaped the design: (1) `PedidoEntregadoEvent` existed as an empty class that nothing published, and delivery only emitted the generic `PedidoEstadoCambiadoEvent`; it now carries `pedidoId`/`restauranteId` and `CambiarEstadoPedidoUseCase` publishes it on ENTREGADO (same pattern as `PedidoCanceladoEvent`). (2) A MESA order reaches ENTREGADO via PENDIENTE -> EN_PREPARACION -> LISTO -> ENTREGADO, so "delivered" is the terminal state and the open-order rule stands. (3) The refund path cancels undelivered orders through `CambiarEstadoPedidoUseCase`, so `PedidoCanceladoEvent` also covers refunds.
+- `existsMesaEnRestaurante` (native query in `PedidoJpaRepository`) was removed; the check now lives in `AsignarMesaAPedidoUseCase` (`MesaJpaRepository`), which `CrearPedidoUseCase` calls before saving the pedido. Non-MESA orders that carry a `mesaId` still get the same-tenant check but do not occupy the table.
+- The release listener is a synchronous `@EventListener` inside the originating transaction (same as `CancelarPedidoAlReembolsarListener`), so the table lock is taken before commit and a failure rolls the operation back; the use case flushes pending pedido changes before counting open orders.
 
 ## Next step
-- T4.
+- T5.

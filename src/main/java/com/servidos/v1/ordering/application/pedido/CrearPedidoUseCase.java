@@ -1,6 +1,7 @@
 package com.servidos.v1.ordering.application.pedido;
 
 import com.servidos.v1.ordering.application.ProductCatalogPort;
+import com.servidos.v1.ordering.application.mesa.AsignarMesaAPedidoUseCase;
 import com.servidos.v1.ordering.domain.DetallePedido;
 import com.servidos.v1.ordering.domain.EstadoPedido;
 import com.servidos.v1.ordering.domain.Pedido;
@@ -31,13 +32,16 @@ public class CrearPedidoUseCase {
     private final PedidoMapper pedidoMapper;
     private final DetallePedidoMapper detalleMapper;
     private final EventPublisher eventPublisher;
+    private final AsignarMesaAPedidoUseCase asignarMesa;
 
     @Transactional
     public Pedido ejecutar(CrearPedidoCommand cmd, Long restauranteId, Long usuarioId) {
         if (restauranteId == null) throw new BusinessException("Restaurante no identificado");
         // pedido.usuario_id es NOT NULL: registra quién tomó el pedido.
         if (usuarioId == null) throw new BusinessException("Usuario no identificado");
-        validar(cmd, restauranteId);
+        validar(cmd);
+        // Valida la mesa y, si el pedido es de mesa, la ocupa (con lock) antes de guardar el pedido.
+        asignarMesa.ejecutar(cmd.mesaId(), cmd.tipoPedido(), restauranteId);
 
         Pedido pedidoDomain = Pedido.crear(restauranteId,
                 usuarioId,
@@ -79,7 +83,7 @@ public class CrearPedidoUseCase {
         return pedidoMapper.toDomain(savedPedido);
     }
 
-    private void validar(CrearPedidoCommand cmd, Long restauranteId) {
+    private void validar(CrearPedidoCommand cmd) {
         if (cmd.tipoPedido() == null) throw new BusinessException("El tipo de pedido es obligatorio");
         if (cmd.items() == null || cmd.items().isEmpty()) throw new BusinessException("El pedido debe tener al menos un item");
         for (CrearPedidoItem item : cmd.items()) {
@@ -88,9 +92,6 @@ public class CrearPedidoUseCase {
         }
         if (cmd.tipoPedido() == TipoPedido.MESA && cmd.mesaId() == null) {
             throw new BusinessException("La mesa es obligatoria para pedidos en mesa");
-        }
-        if (cmd.mesaId() != null && !pedidoRepository.existsMesaEnRestaurante(cmd.mesaId(), restauranteId)) {
-            throw new BusinessException("La mesa no existe");
         }
     }
 }

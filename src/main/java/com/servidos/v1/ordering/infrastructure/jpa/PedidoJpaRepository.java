@@ -17,14 +17,6 @@ public interface PedidoJpaRepository extends JpaRepository<PedidoJpaEntity, Long
     List<PedidoJpaEntity> findByRestauranteIdAndEstado(Long restauranteId, EstadoPedido estado);
 
     /**
-     * La mesa no tiene entidad JPA: solo hace falta saber si pertenece al tenant.
-     * Sin este chequeo un pedido podía apuntar a la mesa de otro restaurante.
-     */
-    @Query(value = "SELECT EXISTS (SELECT 1 FROM mesa WHERE mesa_id = :mesaId AND restaurante_id = :restauranteId)",
-            nativeQuery = true)
-    boolean existsMesaEnRestaurante(@Param("mesaId") Long mesaId, @Param("restauranteId") Long restauranteId);
-
-    /**
      * Pedidos "abiertos" de una mesa: los que todavía retienen a sus comensales. Es todo pedido
      * no cancelado salvo el ENTREGADO que ya se saldó (pago PAGADO o REEMBOLSADO). Un pedido
      * cobrado pero aún sin entregar sigue abierto: el cliente espera su comida. Native porque

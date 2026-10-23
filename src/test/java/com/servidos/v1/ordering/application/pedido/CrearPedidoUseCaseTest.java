@@ -2,6 +2,7 @@ package com.servidos.v1.ordering.application.pedido;
 
 import com.servidos.v1.ordering.application.ProductCatalogPort;
 import com.servidos.v1.ordering.application.ProductoCatalogInfo;
+import com.servidos.v1.ordering.application.mesa.AsignarMesaAPedidoUseCase;
 import com.servidos.v1.ordering.domain.TipoPedido;
 import com.servidos.v1.ordering.infrastructure.jpa.DetallePedidoJpaRepository;
 import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaEntity;
@@ -22,7 +23,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,13 +41,15 @@ class CrearPedidoUseCaseTest {
     @Mock
     EventPublisher eventPublisher;
 
+    @Mock
+    AsignarMesaAPedidoUseCase asignarMesa;
+
     CrearPedidoUseCase useCase;
 
     @BeforeEach
     void setUp() {
         useCase = new CrearPedidoUseCase(pedidoRepository, detalleRepository, productoCatalog,
-                new PedidoMapper(), new DetallePedidoMapper(), eventPublisher);
-        lenient().when(pedidoRepository.existsMesaEnRestaurante(3L, 10L)).thenReturn(true);
+                new PedidoMapper(), new DetallePedidoMapper(), eventPublisher, asignarMesa);
     }
 
     private static CrearPedidoCommand comando(Long productoId) {
@@ -92,7 +95,7 @@ class CrearPedidoUseCaseTest {
 
     @Test
     void mesaDeOtroRestauranteDa400YNoGuarda() {
-        when(pedidoRepository.existsMesaEnRestaurante(3L, 99L)).thenReturn(false);
+        doThrow(new BusinessException("La mesa no existe")).when(asignarMesa).ejecutar(3L, TipoPedido.MESA, 99L);
 
         var ex = assertThrows(BusinessException.class, () -> useCase.ejecutar(comando(7L), 99L, 5L));
 
@@ -101,10 +104,23 @@ class CrearPedidoUseCaseTest {
     }
 
     @Test
+    void asignaLaMesaDelPedidoAntesDeGuardarlo() {
+        dadoPedidoGuardado();
+        when(productoCatalog.findInfoByIdAndRestaurante(7L, 10L))
+                .thenReturn(Optional.of(new ProductoCatalogInfo("Pizza Muzzarella", new BigDecimal("25.00"), true)));
+
+        useCase.ejecutar(comando(7L), 10L, 5L);
+
+        var orden = org.mockito.Mockito.inOrder(asignarMesa, pedidoRepository);
+        orden.verify(asignarMesa).ejecutar(3L, TipoPedido.MESA, 10L);
+        orden.verify(pedidoRepository).save(any(PedidoJpaEntity.class));
+    }
+
+    @Test
     void mesaSeValidaAunqueElPedidoNoSeaDeMesa() {
         var cmd = new CrearPedidoCommand(TipoPedido.DELIVERY, 3L, null, "Juan",
                 List.of(new CrearPedidoItem(7L, 1, null)));
-        when(pedidoRepository.existsMesaEnRestaurante(3L, 99L)).thenReturn(false);
+        doThrow(new BusinessException("La mesa no existe")).when(asignarMesa).ejecutar(3L, TipoPedido.DELIVERY, 99L);
 
         assertThrows(BusinessException.class, () -> useCase.ejecutar(cmd, 99L, 5L));
     }

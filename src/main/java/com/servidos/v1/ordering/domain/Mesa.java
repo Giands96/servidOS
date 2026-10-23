@@ -50,6 +50,14 @@ public class Mesa {
         this.comensales = comensales;
     }
 
+    /**
+     * Un pedido de mesa sienta a la mesa libre sin saber cuántos son; con la mesa ya ocupada
+     * (otro pedido del mismo grupo, o {@link #ocupar}) no cambia nada.
+     */
+    public void ocuparPorPedido() {
+        if (estado == EstadoMesa.LIBRE) this.estado = EstadoMesa.OCUPADA;
+    }
+
     public void liberar() {
         if (estado == EstadoMesa.LIBRE) throw new BusinessException("La mesa ya está libre");
         this.estado = EstadoMesa.LIBRE;
