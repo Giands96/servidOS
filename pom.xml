@@ -128,6 +128,17 @@
 			<version>2.1.0</version>
 			<scope>compile</scope>
 		</dependency>
+		<!-- ===== Exportación de reportes ===== -->
+		<dependency>
+			<groupId>com.github.librepdf</groupId>
+			<artifactId>openpdf</artifactId>
+			<version>3.0.5</version>
+		</dependency>
+		<dependency>
+			<groupId>org.dhatim</groupId>
+			<artifactId>fastexcel</artifactId>
+			<version>0.20.2</version>
+		</dependency>
 	</dependencies>
 
 	<build>
