@@ -55,8 +55,8 @@ changes `mesa.estado`.
 | ID | Task | Route | Status | Commit |
 |----|------|-------|--------|--------|
 | T1 | V14 migration + `Mesa` domain/JPA/mapper/repository + create/list/update use cases + unit tests | delegated (writer trigger: 2+ non-trivial files) | [x] | 10d57f0 |
-| T2 | Ocupar / liberar use cases with row lock and open-orders query + unit tests | delegated | [x] | (hash in final bookkeeping commit) |
-| T3 | `MesaController` + DTOs + OpenAPI + controller tests | delegated | [ ] | |
+| T2 | Ocupar / liberar use cases with row lock and open-orders query + unit tests | delegated | [x] | 393e157 |
+| T3 | `MesaController` + DTOs + OpenAPI + controller tests | delegated | [x] | (hash in final bookkeeping commit) |
 | T4 | Order integration: auto-occupy in `CrearPedidoUseCase`; release listener on paid/delivered/cancelled + tests | delegated | [ ] | |
 | T5 | Integration test: create table, occupy, 2 orders, deliver + pay both -> `LIBRE`; partial -> stays `OCUPADA` | delegated | [ ] | |
 | T6 | Docs: `docs/progress/2026-10-23-gestion-mesas.md` | delegated | [ ] | |
@@ -80,6 +80,9 @@ changes `mesa.estado`.
 - T2 GREEN: same command -> exit 0; surefire: MesaTest 13, OcuparMesaUseCaseTest 5, LiberarMesaUseCaseTest 5, MesaOcuparLiberarIntegracionTest 7 (real Postgres: `SELECT ... FOR UPDATE` lock query and the pedido/pago open-orders query), 0 failures.
 - Deviation from the decision above: a delivered order whose pago is `REEMBOLSADO` also counts as settled (not open). Reason: a refund after delivery leaves the order ENTREGADO with no PAGADO pago (the refund use case only cancels undelivered orders), so with the strict rule that order would hold the table open forever and block manual `liberar` (an ENTREGADO order admits no further state change). Consistent with the `porCobrar` filter, which already treats PAGADO and REEMBOLSADO as settled.
 - The lock itself (concurrent interleaving) is not covered by an automated test: it would need committed data and two threads; the single-transaction integration tests only prove the locking query is valid against Postgres.
+- T3 RED: `./mvnw -q test -Dtest='MesaControllerTest'` -> COMPILATION ERROR (cannot find symbol: `MesaController`, `CrearMesaRequest`, ...).
+- T3 GREEN: `./mvnw -q test -Dtest='MesaControllerTest,MesaPersistenciaIntegracionTest'` -> exit 0; MesaControllerTest 10 (delegation, tenant, `@PreAuthorize` expressions by reflection, Jakarta validation of the DTOs), MesaPersistenciaIntegracionTest 6 (also proves the full Spring context boots with the new controller). One test showed a 2020 s duration in that run (host stall; re-run of the class alone took 7 s), so it is environmental, not code.
+- Roles: create/update `ADMINISTRADOR`; list `ADMINISTRADOR,RECEPCION,CAJERO,MESERO`; ocupar/liberar `ADMINISTRADOR,RECEPCION,MESERO`. Errors: `BusinessException` -> 400 (duplicate, cross-tenant "Mesa no encontrada", rule violations), `@Valid` -> 422.
 
 ## Next step
-- T3.
+- T4.
