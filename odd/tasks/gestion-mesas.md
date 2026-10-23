@@ -93,7 +93,18 @@ changes `mesa.estado`.
 - Full suite: `./mvnw -q test` -> exit 0; surefire aggregate 70 classes, 387 tests, 0 errors, 0 failures, 0 skipped.
 - T6: `docs/progress/2026-10-23-gestion-mesas.md` written (results, decisions, files, how to test, trade-offs, pending). `docs/` is in `.gitignore` (and nothing under it is tracked), so the file is local only and was not force-added.
 
+- Parent spot check: `./mvnw -q test -Dtest='MesaCicloCompletoIntegracionTest,LiberarMesaAlCerrarPedidoListenerTest'` -> exit 0.
+- Review (RDD, risk medium, range `main..2617b54`): consent granted by the user; lens `review-reliability` -> approved,
+  acknowledged (lineage `review-de5abe175bb471d9`, authority burned). Non-blocking advisory findings:
+  - `R3-open-orders-ignores-tipo` (WARNING): `contarAbiertosEnMesa` counts DELIVERY/RECOJO orders that carry a `mesaId`,
+    so they can block release of a table occupied by a MESA party.
+  - `R3-historical-orders-pin-tables` (WARNING): pre-existing unclosed MESA orders (legacy data) would pin a table once
+    it becomes OCUPADA, with no API recovery path.
+  - `R3-no-http-level-tests` (SUGGESTION): controller tests call methods directly; no MockMvc test for 401/403/422/400
+    and invalid `estado` query values.
+
 ## Open questions / pending (not decided here)
+- Review findings above (follow-up work, not part of this candidate).
 - A delivered order that is never paid holds its table forever (manual `liberar` rejects it by design; an ENTREGADO order cannot be cancelled). Product decision needed on how to close it.
 - Real concurrency of the table lock has no automated test (needs committed data and two threads).
 - Push / PR: the user's decision.
