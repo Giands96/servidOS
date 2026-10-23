@@ -1,6 +1,10 @@
 package com.servidos.v1.reporting.api;
 
 import com.servidos.v1.V1Application;
+import com.servidos.v1.reporting.application.export.ArchivoReporte;
+import com.servidos.v1.reporting.application.export.ExportarReporteProductosUseCase;
+import com.servidos.v1.reporting.application.export.ExportarReporteVentasUseCase;
+import com.servidos.v1.reporting.application.export.FormatoExport;
 import com.servidos.v1.reporting.application.ventas.GenerarReporteProductosUseCase;
 import com.servidos.v1.reporting.application.ventas.GenerarReporteVentasUseCase;
 import com.servidos.v1.reporting.application.ventas.ReporteProductos;
@@ -20,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 
@@ -31,6 +36,7 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -46,12 +52,15 @@ class ReporteControllerTest {
 
     @Mock GenerarReporteVentasUseCase ventasUseCase;
     @Mock GenerarReporteProductosUseCase productosUseCase;
+    @Mock ExportarReporteVentasUseCase exportarVentasUseCase;
+    @Mock ExportarReporteProductosUseCase exportarProductosUseCase;
 
     ReporteController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new ReporteController(ventasUseCase, productosUseCase);
+        controller = new ReporteController(ventasUseCase, productosUseCase, exportarVentasUseCase,
+                exportarProductosUseCase);
         TenantContext.setRestauranteId(100L);
     }
 
@@ -138,6 +147,60 @@ class ReporteControllerTest {
         verify(productosUseCase).generar(100L, Periodo.DIARIO, hoy);
     }
 
+    @Test
+    void exportarVentasDevuelveElArchivoComoAdjunto() {
+        when(exportarVentasUseCase.exportar(100L, Periodo.SEMANAL, VIERNES, OrdenVentas.MAYOR_VENTA,
+                FormatoExport.PDF)).thenReturn(new ArchivoReporte("reporte-ventas-semanal-2026-10-19.pdf",
+                "application/pdf", new byte[]{1, 2, 3}));
+
+        var resp = controller.exportarVentas(FormatoExport.PDF, Periodo.SEMANAL, VIERNES, OrdenVentas.MAYOR_VENTA);
+
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        assertEquals("application/pdf", resp.getHeaders().getContentType().toString());
+        assertEquals("attachment; filename=\"reporte-ventas-semanal-2026-10-19.pdf\"",
+                resp.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION));
+        assertArrayEquals(new byte[]{1, 2, 3}, resp.getBody());
+    }
+
+    @Test
+    void exportarVentasSinFechaUsaHoyEnLima() {
+        var hoy = LocalDate.now(ZoneId.of(V1Application.ZONA_HORARIA));
+        when(exportarVentasUseCase.exportar(100L, Periodo.DIARIO, hoy, OrdenVentas.MAS_RECIENTES,
+                FormatoExport.XLSX)).thenReturn(new ArchivoReporte("a.xlsx", FormatoExport.XLSX.contentType(),
+                new byte[]{1}));
+
+        controller.exportarVentas(FormatoExport.XLSX, Periodo.DIARIO, null, OrdenVentas.MAS_RECIENTES);
+
+        verify(exportarVentasUseCase).exportar(100L, Periodo.DIARIO, hoy, OrdenVentas.MAS_RECIENTES,
+                FormatoExport.XLSX);
+    }
+
+    @Test
+    void exportarProductosDevuelveElArchivoComoAdjunto() {
+        when(exportarProductosUseCase.exportar(100L, Periodo.MENSUAL, VIERNES, FormatoExport.XLSX))
+                .thenReturn(new ArchivoReporte("reporte-productos-mensual-2026-10-01.xlsx",
+                        FormatoExport.XLSX.contentType(), new byte[]{9}));
+
+        var resp = controller.exportarProductos(FormatoExport.XLSX, Periodo.MENSUAL, VIERNES);
+
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        assertEquals(FormatoExport.XLSX.contentType(), resp.getHeaders().getContentType().toString());
+        assertEquals("attachment; filename=\"reporte-productos-mensual-2026-10-01.xlsx\"",
+                resp.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION));
+        assertArrayEquals(new byte[]{9}, resp.getBody());
+    }
+
+    @Test
+    void exportarProductosSinFechaUsaHoyEnLima() {
+        var hoy = LocalDate.now(ZoneId.of(V1Application.ZONA_HORARIA));
+        when(exportarProductosUseCase.exportar(100L, Periodo.DIARIO, hoy, FormatoExport.PDF))
+                .thenReturn(new ArchivoReporte("a.pdf", "application/pdf", new byte[]{1}));
+
+        controller.exportarProductos(FormatoExport.PDF, Periodo.DIARIO, null);
+
+        verify(exportarProductosUseCase).exportar(100L, Periodo.DIARIO, hoy, FormatoExport.PDF);
+    }
+
     /** Todo endpoint del controlador es solo del administrador. */
     @Test
     void todosLosEndpointsSonSoloDelAdministrador() {
@@ -145,7 +208,7 @@ class ReporteControllerTest {
                 .filter(m -> java.lang.reflect.Modifier.isPublic(m.getModifiers()))
                 .toList();
 
-        assertTrue(endpoints.size() >= 2, "el controlador debe exponer endpoints");
+        assertTrue(endpoints.size() >= 4, "el controlador debe exponer endpoints");
         for (Method m : endpoints) {
             var pre = m.getAnnotation(PreAuthorize.class);
             assertNotNull(pre, m.getName() + " sin @PreAuthorize");

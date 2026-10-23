@@ -5,6 +5,10 @@ import com.servidos.v1.reporting.api.dto.ReporteProductosResponse;
 import com.servidos.v1.reporting.api.dto.ReporteVentasResponse;
 import com.servidos.v1.reporting.api.dto.VentaPedidoResponse;
 import com.servidos.v1.reporting.api.dto.VentaProductoResponse;
+import com.servidos.v1.reporting.application.export.ArchivoReporte;
+import com.servidos.v1.reporting.application.export.ExportarReporteProductosUseCase;
+import com.servidos.v1.reporting.application.export.ExportarReporteVentasUseCase;
+import com.servidos.v1.reporting.application.export.FormatoExport;
 import com.servidos.v1.reporting.application.ventas.GenerarReporteProductosUseCase;
 import com.servidos.v1.reporting.application.ventas.GenerarReporteVentasUseCase;
 import com.servidos.v1.reporting.domain.OrdenVentas;
@@ -20,6 +24,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,6 +47,8 @@ public class ReporteController {
 
     private final GenerarReporteVentasUseCase generarReporteVentasUseCase;
     private final GenerarReporteProductosUseCase generarReporteProductosUseCase;
+    private final ExportarReporteVentasUseCase exportarReporteVentasUseCase;
+    private final ExportarReporteProductosUseCase exportarReporteProductosUseCase;
 
     @GetMapping("/ventas")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
@@ -100,6 +109,61 @@ public class ReporteController {
                         .mapToObj(i -> new VentaProductoResponse(i + 1, productos.get(i).productoId(),
                                 productos.get(i).nombre(), productos.get(i).cantidad(), productos.get(i).monto()))
                         .toList()));
+    }
+
+    @GetMapping("/ventas/export")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Exportar ventas del período",
+            description = "Descarga todas las ventas del período (sin paginar, en el `orden` pedido) como PDF o XLSX, "
+                    + "con restaurante, período, cantidad de ventas y total vendido en el encabezado. "
+                    + "Mismas reglas de período y venta que /ventas.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Archivo adjunto (application/pdf o xlsx)"),
+            @ApiResponse(responseCode = "400", description = "Parámetros inválidos",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Sin sesión",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Sin permiso",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
+    public ResponseEntity<byte[]> exportarVentas(
+            @Parameter(description = "Formato del archivo", required = true) @RequestParam FormatoExport formato,
+            @Parameter(description = "Tipo de período") @RequestParam(defaultValue = "DIARIO") Periodo periodo,
+            @Parameter(description = "Día de referencia (yyyy-MM-dd); por defecto hoy", example = "2026-10-23")
+            @RequestParam(required = false) LocalDate fecha,
+            @Parameter(description = "Orden de los pedidos") @RequestParam(defaultValue = "MAS_RECIENTES")
+            OrdenVentas orden) {
+        return adjunto(exportarReporteVentasUseCase.exportar(
+                TenantContext.getRestauranteId(), periodo, fechaOHoy(fecha), orden, formato));
+    }
+
+    @GetMapping("/productos/export")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Exportar productos más vendidos del período",
+            description = "Descarga el ranking de productos del período como PDF o XLSX, con el mismo encabezado "
+                    + "que la exportación de ventas.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Archivo adjunto (application/pdf o xlsx)"),
+            @ApiResponse(responseCode = "400", description = "Parámetros inválidos",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Sin sesión",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Sin permiso",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
+    public ResponseEntity<byte[]> exportarProductos(
+            @Parameter(description = "Formato del archivo", required = true) @RequestParam FormatoExport formato,
+            @Parameter(description = "Tipo de período") @RequestParam(defaultValue = "DIARIO") Periodo periodo,
+            @Parameter(description = "Día de referencia (yyyy-MM-dd); por defecto hoy", example = "2026-10-23")
+            @RequestParam(required = false) LocalDate fecha) {
+        return adjunto(exportarReporteProductosUseCase.exportar(
+                TenantContext.getRestauranteId(), periodo, fechaOHoy(fecha), formato));
+    }
+
+    private static ResponseEntity<byte[]> adjunto(ArchivoReporte archivo) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(archivo.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(archivo.nombreArchivo()).build().toString())
+                .body(archivo.contenido());
     }
 
     private static LocalDate fechaOHoy(LocalDate fecha) {

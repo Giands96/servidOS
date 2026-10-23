@@ -1,6 +1,9 @@
 package com.servidos.v1.reporting;
 
 import com.servidos.v1.reporting.application.ReporteVentasQuery;
+import com.servidos.v1.reporting.application.export.ExportarReporteProductosUseCase;
+import com.servidos.v1.reporting.application.export.ExportarReporteVentasUseCase;
+import com.servidos.v1.reporting.application.export.FormatoExport;
 import com.servidos.v1.reporting.application.ventas.GenerarReporteProductosUseCase;
 import com.servidos.v1.reporting.application.ventas.GenerarReporteVentasUseCase;
 import com.servidos.v1.reporting.domain.OrdenVentas;
@@ -10,12 +13,15 @@ import com.servidos.v1.reporting.domain.VentaProducto;
 import com.servidos.v1.shared.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.openpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.parser.PdfTextExtractor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,6 +29,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Las consultas de los reportes contra Postgres: qué cuenta como venta, el borde de los períodos,
@@ -39,6 +46,8 @@ class ReportesIntegracionTest {
 
     @Autowired GenerarReporteVentasUseCase ventasUseCase;
     @Autowired GenerarReporteProductosUseCase productosUseCase;
+    @Autowired ExportarReporteVentasUseCase exportarVentas;
+    @Autowired ExportarReporteProductosUseCase exportarProductos;
     @Autowired ReporteVentasQuery query;
     @Autowired JdbcTemplate jdbc;
 
@@ -348,6 +357,78 @@ class ReportesIntegracionTest {
         assertEquals(1, ranking.size());
         assertEquals(1L, ranking.get(0).cantidad());
         assertMonto("10.00", ranking.get(0).monto());
+    }
+
+    // ---------- exportación ----------
+
+    private static String textoDelPdf(byte[] pdf) throws IOException {
+        var reader = new PdfReader(pdf);
+        try {
+            return new PdfTextExtractor(reader).getTextFromPage(1);
+        } finally {
+            reader.close();
+        }
+    }
+
+    private void ventaConCeviche() {
+        var ceviche = producto(restauranteId, "Ceviche");
+        var id = venta("1234.50", dia(21, 12, 0));
+        detalle(id, restauranteId, ceviche, 2, "617.25", "Ceviche Clásico");
+    }
+
+    @Test
+    void exportaLasVentasAPdfConElEncabezadoYElTotal() throws IOException {
+        ventaConCeviche();
+
+        var archivo = exportarVentas.exportar(restauranteId, Periodo.SEMANAL, VIERNES, OrdenVentas.MAYOR_VENTA,
+                FormatoExport.PDF);
+
+        assertEquals("reporte-ventas-semanal-2026-10-19.pdf", archivo.nombreArchivo());
+        assertEquals("application/pdf", archivo.contentType());
+        var texto = textoDelPdf(archivo.contenido());
+        assertTrue(texto.contains("Reporte de ventas"), texto);
+        assertTrue(texto.contains("Chifa Central"), texto);
+        assertTrue(texto.contains("Semanal · 19/10/2026 – 25/10/2026"), texto);
+        assertTrue(texto.contains("Ventas: 1"), texto);
+        assertTrue(texto.contains("Total vendido: S/ 1,234.50"), texto);
+        assertTrue(texto.contains("21/10/2026 12:00"), texto);
+    }
+
+    @Test
+    void exportaLasVentasAXlsx() {
+        ventaConCeviche();
+
+        var archivo = exportarVentas.exportar(restauranteId, Periodo.SEMANAL, VIERNES, null, FormatoExport.XLSX);
+
+        assertEquals("reporte-ventas-semanal-2026-10-19.xlsx", archivo.nombreArchivo());
+        assertEquals(FormatoExport.XLSX.contentType(), archivo.contentType());
+        assertEquals('P', archivo.contenido()[0]);
+        assertEquals('K', archivo.contenido()[1]);
+    }
+
+    @Test
+    void exportaElRankingDeProductosAPdfConElNombreYElMonto() throws IOException {
+        ventaConCeviche();
+
+        var archivo = exportarProductos.exportar(restauranteId, Periodo.MENSUAL, VIERNES, FormatoExport.PDF);
+
+        assertEquals("reporte-productos-mensual-2026-10-01.pdf", archivo.nombreArchivo());
+        var texto = textoDelPdf(archivo.contenido());
+        assertTrue(texto.contains("Reporte de productos"), texto);
+        assertTrue(texto.contains("Mensual · 01/10/2026 – 31/10/2026"), texto);
+        assertTrue(texto.contains("Ceviche Clásico"), texto);
+        assertTrue(texto.contains("S/ 1,234.50"), texto);
+    }
+
+    @Test
+    void exportaElRankingDeProductosAXlsx() {
+        ventaConCeviche();
+
+        var archivo = exportarProductos.exportar(restauranteId, Periodo.MENSUAL, VIERNES, FormatoExport.XLSX);
+
+        assertEquals("reporte-productos-mensual-2026-10-01.xlsx", archivo.nombreArchivo());
+        assertEquals('P', archivo.contenido()[0]);
+        assertEquals('K', archivo.contenido()[1]);
     }
 
     // ---------- restaurante ----------
