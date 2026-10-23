@@ -61,12 +61,12 @@ only log. There is no endpoint, query, or test. Admins have no way to know what 
 ## Tasks
 | ID | Task | Route | Status | Commit |
 |----|------|-------|--------|--------|
-| T1 | Domain: `Periodo` (calendar range in Lima), `OrdenVentas`, report records + unit tests | delegated (writer trigger: 2+ non-trivial files) | [ ] | |
-| T2 | Queries + `GenerarReporteVentasUseCase` / `GenerarReporteProductosUseCase` (replace stub) + unit and integration tests | delegated | [ ] | |
-| T3 | `ReporteController` read endpoints + DTOs + controller tests | delegated | [ ] | |
-| T4 | Dependencies + PDF and xlsx renderers of a generic report document + tests | delegated | [ ] | |
-| T5 | Export use cases + export endpoints + tests | delegated | [ ] | |
-| T6 | Full suite green, docs/progress, close this document | inline | [ ] | |
+| T1 | Domain: `Periodo` (calendar range in Lima), `OrdenVentas`, report records + unit tests | delegated (writer trigger: 2+ non-trivial files) | [x] | 2be3c6c |
+| T2 | Queries + `GenerarReporteVentasUseCase` / `GenerarReporteProductosUseCase` (replace stub) + unit and integration tests | delegated | [x] | 37862d2 |
+| T3 | `ReporteController` read endpoints + DTOs + controller tests | delegated | [x] | 5c9023b |
+| T4 | Dependencies + PDF and xlsx renderers of a generic report document + tests | delegated | [x] | 5d281cc |
+| T5 | Export use cases + export endpoints + tests | delegated | [x] | 6838c54 |
+| T6 | Full suite green, docs/progress, close this document | inline | [x] | this closing `docs(odd)` commit; `docs/progress/2026-10-23-reportes.md` is local only (`docs/` is git-ignored) |
 
 ## Acceptance criteria
 - Only `PAGADO` and non-cancelled orders of the caller's restaurant appear; another tenant's data never does.
@@ -81,3 +81,19 @@ only log. There is no endpoint, query, or test. Admins have no way to know what 
 ## Progress
 - 2026-10-23: scope agreed with the user, libraries approved, branch and worktree created.
   Baseline on 41f522d: `./mvnw test` green, 301 tests, 0 failures.
+- T1-T5 done by one delegated writer (writer trigger), strict TDD: RED observed as compile failures of the new tests,
+  then GREEN per task. Reporting tests: 84, all green (re-run by the parent).
+- Full suite `./mvnw test` on 6838c54: green, 385 tests, 0 failures (baseline 301).
+- Deviations: xlsx tests read the file with `ZipFile` (fastexcel streams entries, `ZipInputStream` fails); product
+  name has a last-resort fallback `Producto <id>` to avoid null cells.
+- Native review (RDD): medium risk (`pom.xml`), user granted consent; lens `review-reliability`; **approved** and
+  acknowledged (lineage `review-4457e03d7ebecd40`, authority burned). Non-blocking advisory findings:
+  - `R3-pago-fanout` (WARNING): would double-count a pedido with two `PAGADO` pagos. Not reachable today:
+    `pago.pedido_id` is `UNIQUE` (V1), one pago per pedido. Revisit if split payments are ever introduced.
+  - `R3-preauthorize-reflection-only` (WARNING): role rejection is checked by reflection, not by a request with a
+    non-admin principal. Follow-up: a security-level test returning 403.
+  - `R3-today-race` (SUGGESTION): default date reads the wall clock; inject a `Clock` to make it deterministic.
+  - `R3-export-unbounded` (SUGGESTION): exports have no row cap (already listed as pending).
+
+## Next step
+- Push and PR to `main` are the user's decision (squash merge, 1 approval).
