@@ -67,6 +67,7 @@ only log. There is no endpoint, query, or test. Admins have no way to know what 
 | T4 | Dependencies + PDF and xlsx renderers of a generic report document + tests | delegated | [x] | 5d281cc |
 | T5 | Export use cases + export endpoints + tests | delegated | [x] | 6838c54 |
 | T6 | Full suite green, docs/progress, close this document | inline | [x] | this closing `docs(odd)` commit; `docs/progress/2026-10-23-reportes.md` is local only (`docs/` is git-ignored) |
+| T7 | Review follow-ups: HTTP 403 test for non-admin roles + injectable `Clock` for the default date | inline (1 non-trivial file) | [x] | the `test(reporting)` commit that adds this row |
 
 ## Acceptance criteria
 - Only `PAGADO` and non-cancelled orders of the caller's restaurant appear; another tenant's data never does.
@@ -94,6 +95,15 @@ only log. There is no endpoint, query, or test. Admins have no way to know what 
     non-admin principal. Follow-up: a security-level test returning 403.
   - `R3-today-race` (SUGGESTION): default date reads the wall clock; inject a `Clock` to make it deterministic.
   - `R3-export-unbounded` (SUGGESTION): exports have no row cap (already listed as pending).
+- T7 (user-requested follow-up of the two findings above):
+  - `ReportesSeguridadIntegracionTest`: real HTTP through `TenantFilter` and method security; RECEPCION, CAJERO,
+    MESERO, COCINERO, REPARTIDOR get 403 on the four endpoints, ADMINISTRADOR gets 200. It passed on first run
+    (behavior already existed); proven discriminating by removing `@PreAuthorize` from `/ventas` -> 2 failures
+    `expected: <403> but was: <200>`, then restored.
+  - `ReporteController` takes a `Clock` (bean `RelojConfig`, UTC); "today" is computed in Lima from it.
+    RED: `ReporteControllerTest` compile failure (constructor with `Clock`); GREEN: 9/9. The fixed clock is
+    23:30 Friday in Lima (already Saturday in UTC), so the test also pins the zone.
+  - Full suite: green, 393 tests, 0 failures.
 
 ## Next step
 - Push and PR to `main` are the user's decision (squash merge, 1 approval).

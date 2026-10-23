@@ -1,6 +1,5 @@
 package com.servidos.v1.reporting.api;
 
-import com.servidos.v1.V1Application;
 import com.servidos.v1.reporting.application.export.ArchivoReporte;
 import com.servidos.v1.reporting.application.export.ExportarReporteProductosUseCase;
 import com.servidos.v1.reporting.application.export.ExportarReporteVentasUseCase;
@@ -30,9 +29,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 
@@ -55,12 +56,15 @@ class ReporteControllerTest {
     @Mock ExportarReporteVentasUseCase exportarVentasUseCase;
     @Mock ExportarReporteProductosUseCase exportarProductosUseCase;
 
+    /** 23:30 del viernes 23 en Lima; en UTC ya es sábado 24: "hoy" tiene que salir de la zona de Lima. */
+    static final Clock RELOJ = Clock.fixed(Instant.parse("2026-10-24T04:30:00Z"), ZoneOffset.UTC);
+
     ReporteController controller;
 
     @BeforeEach
     void setUp() {
         controller = new ReporteController(ventasUseCase, productosUseCase, exportarVentasUseCase,
-                exportarProductosUseCase);
+                exportarProductosUseCase, RELOJ);
         TenantContext.setRestauranteId(100L);
     }
 
@@ -98,7 +102,7 @@ class ReporteControllerTest {
 
     @Test
     void ventasSinFechaUsaHoyEnLima() {
-        var hoy = LocalDate.now(ZoneId.of(V1Application.ZONA_HORARIA));
+        var hoy = VIERNES;
         when(ventasUseCase.generar(100L, Periodo.DIARIO, hoy, OrdenVentas.MAS_RECIENTES, 0, 20))
                 .thenReturn(new ReporteVentas(Periodo.DIARIO, new RangoFechas(hoy, hoy), RESUMEN,
                         new PageImpl<>(List.of())));
@@ -138,7 +142,7 @@ class ReporteControllerTest {
 
     @Test
     void productosSinFechaUsaHoyEnLima() {
-        var hoy = LocalDate.now(ZoneId.of(V1Application.ZONA_HORARIA));
+        var hoy = VIERNES;
         when(productosUseCase.generar(100L, Periodo.DIARIO, hoy)).thenReturn(
                 new ReporteProductos(Periodo.DIARIO, new RangoFechas(hoy, hoy), RESUMEN, List.of()));
 
@@ -164,7 +168,7 @@ class ReporteControllerTest {
 
     @Test
     void exportarVentasSinFechaUsaHoyEnLima() {
-        var hoy = LocalDate.now(ZoneId.of(V1Application.ZONA_HORARIA));
+        var hoy = VIERNES;
         when(exportarVentasUseCase.exportar(100L, Periodo.DIARIO, hoy, OrdenVentas.MAS_RECIENTES,
                 FormatoExport.XLSX)).thenReturn(new ArchivoReporte("a.xlsx", FormatoExport.XLSX.contentType(),
                 new byte[]{1}));
@@ -192,7 +196,7 @@ class ReporteControllerTest {
 
     @Test
     void exportarProductosSinFechaUsaHoyEnLima() {
-        var hoy = LocalDate.now(ZoneId.of(V1Application.ZONA_HORARIA));
+        var hoy = VIERNES;
         when(exportarProductosUseCase.exportar(100L, Periodo.DIARIO, hoy, FormatoExport.PDF))
                 .thenReturn(new ArchivoReporte("a.pdf", "application/pdf", new byte[]{1}));
 

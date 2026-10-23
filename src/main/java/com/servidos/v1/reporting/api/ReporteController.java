@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.stream.IntStream;
@@ -49,6 +50,7 @@ public class ReporteController {
     private final GenerarReporteProductosUseCase generarReporteProductosUseCase;
     private final ExportarReporteVentasUseCase exportarReporteVentasUseCase;
     private final ExportarReporteProductosUseCase exportarReporteProductosUseCase;
+    private final Clock reloj;
 
     @GetMapping("/ventas")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
@@ -166,7 +168,8 @@ public class ReporteController {
                 .body(archivo.contenido());
     }
 
-    private static LocalDate fechaOHoy(LocalDate fecha) {
-        return fecha != null ? fecha : LocalDate.now(ZoneId.of(V1Application.ZONA_HORARIA));
+    /** Sin fecha, "hoy" en Lima según el reloj inyectado (fijo en los tests). */
+    private LocalDate fechaOHoy(LocalDate fecha) {
+        return fecha != null ? fecha : LocalDate.ofInstant(reloj.instant(), ZoneId.of(V1Application.ZONA_HORARIA));
     }
 }
