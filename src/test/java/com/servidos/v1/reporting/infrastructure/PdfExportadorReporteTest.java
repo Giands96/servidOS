@@ -75,8 +75,9 @@ class PdfExportadorReporteTest {
         }
     }
 
+    /** Una tabla con solo cabecera no se dibuja en OpenPDF: el período vacío tiene que verse igual. */
     @Test
-    void sinFilasGeneraIgualElDocumento() throws IOException {
+    void sinFilasMuestraLasColumnasYAvisaQueNoHayVentas() throws IOException {
         var vacio = new DocumentoReporte("Reporte de ventas", DocumentoDePrueba.ENCABEZADO,
                 DocumentoDePrueba.COLUMNAS, List.of());
 
@@ -84,5 +85,9 @@ class PdfExportadorReporteTest {
 
         assertTrue(texto.contains("Reporte de ventas"), texto);
         assertTrue(texto.contains("Chifa Central"), texto);
+        for (var columna : DocumentoDePrueba.COLUMNAS) {
+            assertTrue(texto.contains(columna.nombre()), columna.nombre() + " en " + texto);
+        }
+        assertTrue(texto.contains("Sin ventas en el período"), texto);
     }
 }

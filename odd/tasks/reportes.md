@@ -67,7 +67,8 @@ only log. There is no endpoint, query, or test. Admins have no way to know what 
 | T4 | Dependencies + PDF and xlsx renderers of a generic report document + tests | delegated | [x] | 5d281cc |
 | T5 | Export use cases + export endpoints + tests | delegated | [x] | 6838c54 |
 | T6 | Full suite green, docs/progress, close this document | inline | [x] | this closing `docs(odd)` commit; `docs/progress/2026-10-23-reportes.md` is local only (`docs/` is git-ignored) |
-| T7 | Review follow-ups: HTTP 403 test for non-admin roles + injectable `Clock` for the default date | inline (1 non-trivial file) | [x] | the `test(reporting)` commit that adds this row |
+| T7 | Review follow-ups: HTTP 403 test for non-admin roles + injectable `Clock` for the default date | inline (1 non-trivial file) | [x] | cf0c8a6 |
+| T8 | Smoke-test fix: PDF of an empty period shows the columns and a "Sin ventas en el período" row | inline (1 file + test) | [x] | the `fix(reporting)` commit that adds this row |
 
 ## Acceptance criteria
 - Only `PAGADO` and non-cancelled orders of the caller's restaurant appear; another tenant's data never does.
@@ -104,6 +105,15 @@ only log. There is no endpoint, query, or test. Admins have no way to know what 
     RED: `ReporteControllerTest` compile failure (constructor with `Clock`); GREEN: 9/9. The fixed clock is
     23:30 Friday in Lima (already Saturday in UTC), so the test also pins the zone.
   - Full suite: green, 393 tests, 0 failures.
+- Smoke test with profile `dev` (port 8081, Flyway disabled so the dev DB schema was not touched), as the
+  ADMINISTRADOR of a demo restaurant created via `POST /api/v1/restaurantes` (id 664, no sales):
+  - The 4 endpoints return 200 with the expected ranges (day; Monday-Sunday week; month), content types and file
+    names. SUPERADMIN and anonymous calls get 403. `size=500` gets 400.
+  - Bug found: an empty period's PDF showed no table at all (OpenPDF skips a table that only has header rows).
+  - Invalid enum or missing `formato` returns 500: pre-existing, project-wide (`/api/v1/pedidos?estado=FOO`
+    too), handled in a separate session on `shared/exception/GlobalExceptionHandler`.
+- T8: RED `PdfExportadorReporteTest.sinFilasMuestraLasColumnasYAvisaQueNoHayVentas` failed (no column names in
+  the text); GREEN 6/6 after adding a full-width "Sin ventas en el período" row. Full suite green, 393 tests.
 
 ## Next step
 - Push and PR to `main` are the user's decision (squash merge, 1 approval).

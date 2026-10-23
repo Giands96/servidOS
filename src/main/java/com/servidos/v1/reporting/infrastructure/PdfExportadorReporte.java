@@ -32,6 +32,7 @@ public class PdfExportadorReporte implements ExportadorReporte {
     private static final Font CABECERA = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
     private static final Font CELDA = FontFactory.getFont(FontFactory.HELVETICA, 9);
     private static final Color FONDO_CABECERA = new Color(0xE5, 0xE7, 0xEB);
+    private static final String SIN_VENTAS = "Sin ventas en el período";
 
     @Override
     public FormatoExport formato() {
@@ -70,6 +71,12 @@ public class PdfExportadorReporte implements ExportadorReporte {
             var celda = celda(columna.nombre(), CABECERA, alineacion(columna));
             celda.setBackgroundColor(FONDO_CABECERA);
             tabla.addCell(celda);
+        }
+        // OpenPDF no dibuja una tabla que solo tiene la fila de cabecera.
+        if (documento.filas().isEmpty()) {
+            var aviso = celda(SIN_VENTAS, CELDA, Element.ALIGN_CENTER);
+            aviso.setColspan(columnas.size());
+            tabla.addCell(aviso);
         }
         for (var fila : documento.filas()) {
             for (int i = 0; i < columnas.size(); i++) {
