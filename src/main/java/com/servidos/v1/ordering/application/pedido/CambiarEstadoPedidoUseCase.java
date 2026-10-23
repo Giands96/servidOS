@@ -5,6 +5,7 @@ import com.servidos.v1.ordering.domain.EstadoPedido;
 import com.servidos.v1.ordering.domain.Pedido;
 import com.servidos.v1.ordering.domain.TipoPedido;
 import com.servidos.v1.ordering.domain.event.PedidoCanceladoEvent;
+import com.servidos.v1.ordering.domain.event.PedidoEntregadoEvent;
 import com.servidos.v1.ordering.domain.event.PedidoEstadoCambiadoEvent;
 import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaEntity;
 import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaRepository;
@@ -43,6 +44,9 @@ public class CambiarEstadoPedidoUseCase {
         eventPublisher.publish(new PedidoEstadoCambiadoEvent(pedidoId, restauranteId, anterior, nuevoEstado));
         if (nuevoEstado == EstadoPedido.CANCELADO) {
             eventPublisher.publish(new PedidoCanceladoEvent(pedidoId, restauranteId));
+        }
+        if (nuevoEstado == EstadoPedido.ENTREGADO) {
+            eventPublisher.publish(new PedidoEntregadoEvent(pedidoId, restauranteId));
         }
         return pedidoMapper.toDomain(guardado);
     }

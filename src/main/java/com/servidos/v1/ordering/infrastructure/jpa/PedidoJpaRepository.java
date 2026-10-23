@@ -17,12 +17,23 @@ public interface PedidoJpaRepository extends JpaRepository<PedidoJpaEntity, Long
     List<PedidoJpaEntity> findByRestauranteIdAndEstado(Long restauranteId, EstadoPedido estado);
 
     /**
-     * La mesa no tiene entidad JPA: solo hace falta saber si pertenece al tenant.
-     * Sin este chequeo un pedido podía apuntar a la mesa de otro restaurante.
+     * Pedidos "abiertos" de una mesa: los que todavía retienen a sus comensales. Es todo pedido
+     * no cancelado salvo el ENTREGADO que ya se saldó (pago PAGADO o REEMBOLSADO). Un pedido
+     * cobrado pero aún sin entregar sigue abierto: el cliente espera su comida. Solo cuentan los
+     * pedidos MESA: un DELIVERY/RECOJO puede llevar mesa_id pero no la ocupa. Native porque
+     * mira la tabla pago sin acoplar ordering a la entidad de payment.
      */
-    @Query(value = "SELECT EXISTS (SELECT 1 FROM mesa WHERE mesa_id = :mesaId AND restaurante_id = :restauranteId)",
-            nativeQuery = true)
-    boolean existsMesaEnRestaurante(@Param("mesaId") Long mesaId, @Param("restauranteId") Long restauranteId);
+    @Query(value = """
+            SELECT count(*) FROM pedido p
+            WHERE p.mesa_id = :mesaId AND p.restaurante_id = :restauranteId
+              AND p.tipo_pedido = 'MESA'
+              AND p.estado <> 'CANCELADO'
+              AND NOT (p.estado = 'ENTREGADO' AND EXISTS (
+                    SELECT 1 FROM pago pg
+                    WHERE pg.pedido_id = p.pedido_id AND pg.restaurante_id = p.restaurante_id
+                      AND pg.estado IN ('PAGADO', 'REEMBOLSADO')))
+            """, nativeQuery = true)
+    long contarAbiertosEnMesa(@Param("mesaId") Long mesaId, @Param("restauranteId") Long restauranteId);
 
     String FILTRO_LISTADO = """
             FROM pedido p

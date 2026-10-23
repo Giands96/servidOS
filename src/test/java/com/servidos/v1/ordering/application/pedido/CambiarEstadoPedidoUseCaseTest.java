@@ -4,6 +4,7 @@ import com.servidos.v1.ordering.application.PedidoPagoPort;
 import com.servidos.v1.ordering.domain.EstadoPedido;
 import com.servidos.v1.ordering.domain.TipoPedido;
 import com.servidos.v1.ordering.domain.event.PedidoCanceladoEvent;
+import com.servidos.v1.ordering.domain.event.PedidoEntregadoEvent;
 import com.servidos.v1.ordering.domain.event.PedidoEstadoCambiadoEvent;
 import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaEntity;
 import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaRepository;
@@ -155,6 +156,18 @@ class CambiarEstadoPedidoUseCaseTest {
 
         verify(eventPublisher).publish(argThat(e -> e instanceof PedidoCanceladoEvent c
                 && c.getPedidoId().equals(1L) && c.getRestauranteId().equals(10L)));
+    }
+
+    /** La liberación automática de la mesa escucha esta entrega. */
+    @Test
+    void entregarPublicaEventoDeEntrega() {
+        dadoSave();
+        dadoPedido(pedido(EstadoPedido.LISTO, TipoPedido.MESA));
+
+        useCase.ejecutar(1L, 10L, EstadoPedido.ENTREGADO);
+
+        verify(eventPublisher).publish(argThat(e -> e instanceof PedidoEntregadoEvent p
+                && p.getPedidoId().equals(1L) && p.getRestauranteId().equals(10L)));
     }
 
     /** Todo cambio de estado se publica con el estado anterior: lo usa el tablero de cocina (WebSocket). */
