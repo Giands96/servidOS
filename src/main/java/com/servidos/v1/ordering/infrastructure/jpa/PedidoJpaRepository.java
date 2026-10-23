@@ -24,6 +24,23 @@ public interface PedidoJpaRepository extends JpaRepository<PedidoJpaEntity, Long
             nativeQuery = true)
     boolean existsMesaEnRestaurante(@Param("mesaId") Long mesaId, @Param("restauranteId") Long restauranteId);
 
+    /**
+     * Pedidos "abiertos" de una mesa: los que todavía retienen a sus comensales. Es todo pedido
+     * no cancelado salvo el ENTREGADO que ya se saldó (pago PAGADO o REEMBOLSADO). Un pedido
+     * cobrado pero aún sin entregar sigue abierto: el cliente espera su comida. Native porque
+     * mira la tabla pago sin acoplar ordering a la entidad de payment.
+     */
+    @Query(value = """
+            SELECT count(*) FROM pedido p
+            WHERE p.mesa_id = :mesaId AND p.restaurante_id = :restauranteId
+              AND p.estado <> 'CANCELADO'
+              AND NOT (p.estado = 'ENTREGADO' AND EXISTS (
+                    SELECT 1 FROM pago pg
+                    WHERE pg.pedido_id = p.pedido_id AND pg.restaurante_id = p.restaurante_id
+                      AND pg.estado IN ('PAGADO', 'REEMBOLSADO')))
+            """, nativeQuery = true)
+    long contarAbiertosEnMesa(@Param("mesaId") Long mesaId, @Param("restauranteId") Long restauranteId);
+
     String FILTRO_LISTADO = """
             FROM pedido p
             WHERE p.restaurante_id = :restauranteId

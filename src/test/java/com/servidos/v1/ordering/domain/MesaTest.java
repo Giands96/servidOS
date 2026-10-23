@@ -59,6 +59,70 @@ class MesaTest {
     }
 
     @Test
+    void ocuparMarcaOcupadaConLosComensales() {
+        var mesa = Mesa.crear(10L, 5, 4);
+
+        mesa.ocupar(3);
+
+        assertEquals(EstadoMesa.OCUPADA, mesa.getEstado());
+        assertEquals(3, mesa.getComensales());
+    }
+
+    @Test
+    void ocuparAdmiteDesdeUnoHastaLaCapacidad() {
+        assertEquals(1, ocupada(1).getComensales());
+        assertEquals(4, ocupada(4).getComensales());
+    }
+
+    private static Mesa ocupada(int comensales) {
+        var mesa = Mesa.crear(10L, 5, 4);
+        mesa.ocupar(comensales);
+        return mesa;
+    }
+
+    @Test
+    void ocuparRechazaComensalesFueraDeRango() {
+        var mesa = Mesa.crear(10L, 5, 4);
+
+        var ex = assertThrows(BusinessException.class, () -> mesa.ocupar(5));
+
+        assertEquals("Los comensales deben estar entre 1 y 4", ex.getMessage());
+        assertThrows(BusinessException.class, () -> mesa.ocupar(0));
+        assertThrows(BusinessException.class, () -> mesa.ocupar(null));
+        assertEquals(EstadoMesa.LIBRE, mesa.getEstado());
+        assertNull(mesa.getComensales());
+    }
+
+    @Test
+    void ocuparUnaMesaOcupadaFalla() {
+        var mesa = ocupada(2);
+
+        var ex = assertThrows(BusinessException.class, () -> mesa.ocupar(3));
+
+        assertEquals("La mesa ya está ocupada", ex.getMessage());
+        assertEquals(2, mesa.getComensales());
+    }
+
+    @Test
+    void liberarDejaLaMesaLibreYSinComensales() {
+        var mesa = ocupada(3);
+
+        mesa.liberar();
+
+        assertEquals(EstadoMesa.LIBRE, mesa.getEstado());
+        assertNull(mesa.getComensales());
+    }
+
+    @Test
+    void liberarUnaMesaLibreFalla() {
+        var mesa = Mesa.crear(10L, 5, 4);
+
+        var ex = assertThrows(BusinessException.class, mesa::liberar);
+
+        assertEquals("La mesa ya está libre", ex.getMessage());
+    }
+
+    @Test
     void actualizarNoPermiteCapacidadMenorALosComensalesActuales() {
         var mesa = Mesa.builder().restaurante_id(10L).numero(5).capacidad(6).comensales(5)
                 .estado(EstadoMesa.OCUPADA).build();

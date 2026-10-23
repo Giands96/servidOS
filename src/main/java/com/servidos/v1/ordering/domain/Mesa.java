@@ -40,6 +40,22 @@ public class Mesa {
         this.capacidad = capacidad;
     }
 
+    /** Sienta a una mesa LIBRE; {@code comensales} va de 1 a la capacidad de la mesa. */
+    public void ocupar(Integer comensales) {
+        if (estado == EstadoMesa.OCUPADA) throw new BusinessException("La mesa ya está ocupada");
+        if (comensales == null || comensales < 1 || comensales > capacidad) {
+            throw new BusinessException("Los comensales deben estar entre 1 y " + capacidad);
+        }
+        this.estado = EstadoMesa.OCUPADA;
+        this.comensales = comensales;
+    }
+
+    public void liberar() {
+        if (estado == EstadoMesa.LIBRE) throw new BusinessException("La mesa ya está libre");
+        this.estado = EstadoMesa.LIBRE;
+        this.comensales = null;
+    }
+
     private static void validarNumeroYCapacidad(Integer numero, Integer capacidad) {
         if (numero == null || numero <= 0) throw new BusinessException("El número de mesa debe ser mayor a 0");
         if (capacidad == null || capacidad <= 0) throw new BusinessException("La capacidad debe ser mayor a 0");

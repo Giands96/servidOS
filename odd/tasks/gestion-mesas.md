@@ -33,7 +33,7 @@ changes `mesa.estado`.
 - Commit with explicit pathspecs only: the index holds unrelated staged files (skills, frontend docs, package.json).
 
 ## Decisions
-- "Open order" = `pedido.mesa_id = X AND estado <> 'CANCELADO' AND NOT (estado = 'ENTREGADO' AND a PAGADO pago exists)`.
+- "Open order" = `pedido.mesa_id = X AND estado <> 'CANCELADO' AND NOT (estado = 'ENTREGADO' AND a PAGADO or REEMBOLSADO pago exists)` (REEMBOLSADO added in T2, see Progress).
   The table is released only when the party finished (delivered) and paid, matching "termina con los pedidos y se cobra".
 - Auto-occupy on order creation instead of rejecting orders on a `LIBRE` table: keeps current clients working and
   matches the request ("a local order gets a table"); `ocupar` is the explicit way to record `comensales`.
@@ -54,8 +54,8 @@ changes `mesa.estado`.
 ## Tasks
 | ID | Task | Route | Status | Commit |
 |----|------|-------|--------|--------|
-| T1 | V14 migration + `Mesa` domain/JPA/mapper/repository + create/list/update use cases + unit tests | delegated (writer trigger: 2+ non-trivial files) | [x] | (T1 commit; hash in final bookkeeping commit) |
-| T2 | Ocupar / liberar use cases with row lock and open-orders query + unit tests | delegated | [ ] | |
+| T1 | V14 migration + `Mesa` domain/JPA/mapper/repository + create/list/update use cases + unit tests | delegated (writer trigger: 2+ non-trivial files) | [x] | 10d57f0 |
+| T2 | Ocupar / liberar use cases with row lock and open-orders query + unit tests | delegated | [x] | (hash in final bookkeeping commit) |
 | T3 | `MesaController` + DTOs + OpenAPI + controller tests | delegated | [ ] | |
 | T4 | Order integration: auto-occupy in `CrearPedidoUseCase`; release listener on paid/delivered/cancelled + tests | delegated | [ ] | |
 | T5 | Integration test: create table, occupy, 2 orders, deliver + pay both -> `LIBRE`; partial -> stays `OCUPADA` | delegated | [ ] | |
@@ -76,6 +76,10 @@ changes `mesa.estado`.
 - T1 RED: `./mvnw -q test -Dtest='MesaTest,CrearMesaUseCaseTest,ListarMesasUseCaseTest,ActualizarMesaUseCaseTest,MesaPersistenciaIntegracionTest'` -> COMPILATION ERROR (cannot find symbol: `Mesa`, `CrearMesaUseCase`, `MesaJpaRepository`, ...).
 - T1 GREEN: same command -> exit 0; surefire: MesaTest 7, CrearMesaUseCaseTest 5, ListarMesasUseCaseTest 3, ActualizarMesaUseCaseTest 6, MesaPersistenciaIntegracionTest 6 (real Postgres, applies V14 and `ddl-auto: validate`), 0 failures.
 - Duplicate `numero` maps to `BusinessException` (400), same as duplicate categories; the UNIQUE race is also mapped.
+- T2 RED: `./mvnw -q test -Dtest='MesaTest,OcuparMesaUseCaseTest,LiberarMesaUseCaseTest,MesaOcuparLiberarIntegracionTest'` -> COMPILATION ERROR (cannot find symbol: `OcuparMesaUseCase`, `LiberarMesaUseCase`, `contarAbiertosEnMesa`, ...).
+- T2 GREEN: same command -> exit 0; surefire: MesaTest 13, OcuparMesaUseCaseTest 5, LiberarMesaUseCaseTest 5, MesaOcuparLiberarIntegracionTest 7 (real Postgres: `SELECT ... FOR UPDATE` lock query and the pedido/pago open-orders query), 0 failures.
+- Deviation from the decision above: a delivered order whose pago is `REEMBOLSADO` also counts as settled (not open). Reason: a refund after delivery leaves the order ENTREGADO with no PAGADO pago (the refund use case only cancels undelivered orders), so with the strict rule that order would hold the table open forever and block manual `liberar` (an ENTREGADO order admits no further state change). Consistent with the `porCobrar` filter, which already treats PAGADO and REEMBOLSADO as settled.
+- The lock itself (concurrent interleaving) is not covered by an automated test: it would need committed data and two threads; the single-transaction integration tests only prove the locking query is valid against Postgres.
 
 ## Next step
-- T2.
+- T3.
