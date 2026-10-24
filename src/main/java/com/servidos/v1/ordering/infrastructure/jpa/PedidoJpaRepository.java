@@ -17,21 +17,34 @@ public interface PedidoJpaRepository extends JpaRepository<PedidoJpaEntity, Long
     List<PedidoJpaEntity> findByRestauranteIdAndEstado(Long restauranteId, EstadoPedido estado);
 
     /**
-     * Pedidos "abiertos" de una mesa: los que todavía retienen a sus comensales. Es todo pedido
-     * no cancelado salvo el ENTREGADO que ya se saldó (pago PAGADO o REEMBOLSADO). Un pedido
-     * cobrado pero aún sin entregar sigue abierto: el cliente espera su comida. Solo cuentan los
-     * pedidos MESA: un DELIVERY/RECOJO puede llevar mesa_id pero no la ocupa. Native porque
-     * mira la tabla pago sin acoplar ordering a la entidad de payment.
+     * Pedidos "abiertos" de una mesa: los que todavía retienen a sus comensales o su cuenta.
+     * <ul>
+     *   <li>Pedidos MESA: todo pedido no cancelado salvo el ENTREGADO que ya se saldó (pago PAGADO
+     *   o REEMBOLSADO). Un pedido cobrado pero aún sin entregar sigue abierto: el cliente espera
+     *   su comida.</li>
+     *   <li>Pedidos DELIVERY/RECOJO con ese mesa_id: no ocupan la mesa, pero su cobro forma parte de
+     *   la cuenta, así que la retienen mientras no estén cancelados ni cobrados (PAGADO o
+     *   REEMBOLSADO), estén entregados o no. Una vez cobrados dejan de contar aunque sigan en
+     *   camino: un delivery pagado no debe dejar la mesa ocupada hasta que llegue el repartidor.</li>
+     * </ul>
+     * Native porque mira la tabla pago sin acoplar ordering a la entidad de payment.
      */
     @Query(value = """
             SELECT count(*) FROM pedido p
             WHERE p.mesa_id = :mesaId AND p.restaurante_id = :restauranteId
-              AND p.tipo_pedido = 'MESA'
               AND p.estado <> 'CANCELADO'
-              AND NOT (p.estado = 'ENTREGADO' AND EXISTS (
-                    SELECT 1 FROM pago pg
-                    WHERE pg.pedido_id = p.pedido_id AND pg.restaurante_id = p.restaurante_id
-                      AND pg.estado IN ('PAGADO', 'REEMBOLSADO')))
+              AND CASE
+                    WHEN p.tipo_pedido = 'MESA' THEN
+                        NOT (p.estado = 'ENTREGADO' AND EXISTS (
+                            SELECT 1 FROM pago pg
+                            WHERE pg.pedido_id = p.pedido_id AND pg.restaurante_id = p.restaurante_id
+                              AND pg.estado IN ('PAGADO', 'REEMBOLSADO')))
+                    ELSE
+                        NOT EXISTS (
+                            SELECT 1 FROM pago pg
+                            WHERE pg.pedido_id = p.pedido_id AND pg.restaurante_id = p.restaurante_id
+                              AND pg.estado IN ('PAGADO', 'REEMBOLSADO'))
+                  END
             """, nativeQuery = true)
     long contarAbiertosEnMesa(@Param("mesaId") Long mesaId, @Param("restauranteId") Long restauranteId);
 

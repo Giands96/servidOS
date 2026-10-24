@@ -161,18 +161,41 @@ class MesaOcuparLiberarIntegracionTest {
         assertEquals(0L, pedidoRepository.contarAbiertosEnMesa(mesaId, otroRestauranteId));
     }
 
+    /** Un pedido vinculado que no es de mesa retiene la mesa mientras no se cobre, entregado o no. */
     @Test
-    void losPedidosDeliveryYRecojoConMesaNoRetienenLaMesa() {
+    void losPedidosDeliveryYRecojoConMesaSinCobrarRetienenLaMesa() {
         pedidoEnMesa(TipoPedido.DELIVERY, EstadoPedido.EN_ENTREGA, null);
         pedidoEnMesa(TipoPedido.RECOJO, EstadoPedido.PENDIENTE, null);
+        pedidoEnMesa(TipoPedido.RECOJO, EstadoPedido.ENTREGADO, null);
+
+        assertEquals(3L, pedidoRepository.contarAbiertosEnMesa(mesaId, restauranteId));
+    }
+
+    /** Cobrado (aunque siga en camino) o cancelado, ya no retiene la mesa. */
+    @Test
+    void losPedidosDeliveryYRecojoConMesaCobradosOCanceladosNoRetienenLaMesa() {
+        pedidoEnMesa(TipoPedido.DELIVERY, EstadoPedido.EN_ENTREGA, EstadoPago.PAGADO);
+        pedidoEnMesa(TipoPedido.RECOJO, EstadoPedido.PENDIENTE, EstadoPago.PAGADO);
+        pedidoEnMesa(TipoPedido.RECOJO, EstadoPedido.ENTREGADO, EstadoPago.REEMBOLSADO);
+        pedidoEnMesa(TipoPedido.RECOJO, EstadoPedido.CANCELADO, null);
 
         assertEquals(0L, pedidoRepository.contarAbiertosEnMesa(mesaId, restauranteId));
     }
 
     @Test
-    void liberarManualIgnoraPedidosNoMesaAbiertos() {
+    void liberarManualRechazaUnPedidoNoMesaSinCobrar() {
         ocuparMesa.ejecutar(new OcuparMesaCommand(mesaId, 2), restauranteId);
         pedidoEnMesa(TipoPedido.DELIVERY, EstadoPedido.PENDIENTE, null);
+
+        var ex = assertThrows(BusinessException.class, () -> liberarMesa.ejecutar(mesaId, restauranteId));
+
+        assertEquals("La mesa tiene pedidos abiertos", ex.getMessage());
+    }
+
+    @Test
+    void liberarManualIgnoraPedidosNoMesaYaCobrados() {
+        ocuparMesa.ejecutar(new OcuparMesaCommand(mesaId, 2), restauranteId);
+        pedidoEnMesa(TipoPedido.DELIVERY, EstadoPedido.EN_ENTREGA, EstadoPago.PAGADO);
 
         assertEquals(EstadoMesa.LIBRE, liberarMesa.ejecutar(mesaId, restauranteId).getEstado());
     }

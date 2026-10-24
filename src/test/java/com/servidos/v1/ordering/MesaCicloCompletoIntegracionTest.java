@@ -246,6 +246,48 @@ class MesaCicloCompletoIntegracionTest {
     }
 
     @Test
+    void unRecojoVinculadoSinCobrarImpideLaLiberacionAutomatica() {
+        Long ronda = pedidoDeMesa();
+        Long recojo = pedido(TipoPedido.RECOJO, mesaId);
+
+        entregar(ronda);
+        pagar(ronda);
+
+        // La ronda ya está entregada y cobrada, pero el recojo de la mesa sigue sin cobrar.
+        assertOcupada();
+
+        // Cobrarlo basta (aunque no esté entregado) para cerrar la mesa.
+        pagar(recojo);
+        assertLibre();
+    }
+
+    @Test
+    void unRecojoVinculadoSinCobrarImpideLaLiberacionManual() {
+        ocuparMesa.ejecutar(new OcuparMesaCommand(mesaId, 2), restauranteId);
+        Long recojo = pedido(TipoPedido.RECOJO, mesaId);
+
+        var ex = assertThrows(BusinessException.class, () -> liberarMesa.ejecutar(mesaId, restauranteId));
+        assertEquals("La mesa tiene pedidos abiertos", ex.getMessage());
+        assertOcupada();
+
+        pagar(recojo);
+        assertLibre();
+    }
+
+    @Test
+    void unRecojoVinculadoCanceladoNoImpideLaLiberacion() {
+        Long ronda = pedidoDeMesa();
+        Long recojo = pedido(TipoPedido.RECOJO, mesaId);
+        cambiarEstado.ejecutar(recojo, restauranteId, EstadoPedido.CANCELADO);
+        assertOcupada();
+
+        entregar(ronda);
+        pagar(ronda);
+
+        assertLibre();
+    }
+
+    @Test
     void laMesaLiberadaSeVuelveAUsar() {
         Long a = pedidoDeMesa();
         entregar(a);
