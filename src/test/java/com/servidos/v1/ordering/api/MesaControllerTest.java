@@ -7,10 +7,12 @@ import com.servidos.v1.ordering.application.mesa.ActualizarMesaCommand;
 import com.servidos.v1.ordering.application.mesa.ActualizarMesaUseCase;
 import com.servidos.v1.ordering.application.mesa.CrearMesaCommand;
 import com.servidos.v1.ordering.application.mesa.CrearMesaUseCase;
+import com.servidos.v1.ordering.application.mesa.DesactivarMesaUseCase;
 import com.servidos.v1.ordering.application.mesa.LiberarMesaUseCase;
 import com.servidos.v1.ordering.application.mesa.ListarMesasUseCase;
 import com.servidos.v1.ordering.application.mesa.OcuparMesaCommand;
 import com.servidos.v1.ordering.application.mesa.OcuparMesaUseCase;
+import com.servidos.v1.ordering.application.mesa.ReactivarMesaUseCase;
 import com.servidos.v1.ordering.domain.EstadoMesa;
 import com.servidos.v1.ordering.domain.Mesa;
 import com.servidos.v1.shared.security.TenantContext;
@@ -43,13 +45,15 @@ class MesaControllerTest {
     @Mock ActualizarMesaUseCase actualizarMesaUseCase;
     @Mock OcuparMesaUseCase ocuparMesaUseCase;
     @Mock LiberarMesaUseCase liberarMesaUseCase;
+    @Mock DesactivarMesaUseCase desactivarMesaUseCase;
+    @Mock ReactivarMesaUseCase reactivarMesaUseCase;
 
     MesaController controller;
 
     @BeforeEach
     void setUp() {
         controller = new MesaController(crearMesaUseCase, listarMesasUseCase, actualizarMesaUseCase,
-                ocuparMesaUseCase, liberarMesaUseCase);
+                ocuparMesaUseCase, liberarMesaUseCase, desactivarMesaUseCase, reactivarMesaUseCase);
         TenantContext.setRestauranteId(100L);
     }
 
@@ -136,6 +140,56 @@ class MesaControllerTest {
 
         assertEquals(HttpStatus.OK, resp.getStatusCode());
         assertEquals(EstadoMesa.LIBRE, resp.getBody().estado());
+    }
+
+    @Test
+    void listarInactivasDelegaConElTenantYMarcaActivaEnFalse() {
+        var baja = mesa(EstadoMesa.LIBRE, null);
+        baja.setActiva(false);
+        when(listarMesasUseCase.listarInactivas(100L)).thenReturn(List.of(baja));
+
+        var resp = controller.listarInactivas();
+
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        assertEquals(1, resp.getBody().size());
+        assertFalse(resp.getBody().get(0).activa());
+    }
+
+    @Test
+    void desactivarDelegaConElIdDelPathYDevuelveLaMesaInactiva() {
+        var baja = mesa(EstadoMesa.LIBRE, null);
+        baja.setActiva(false);
+        when(desactivarMesaUseCase.ejecutar(7L, 100L)).thenReturn(baja);
+
+        var resp = controller.desactivar(7L);
+
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        assertEquals(7L, resp.getBody().mesaId());
+        assertFalse(resp.getBody().activa());
+    }
+
+    @Test
+    void reactivarDelegaConElIdDelPathYDevuelveLaMesaActiva() {
+        when(reactivarMesaUseCase.ejecutar(7L, 100L)).thenReturn(mesa(EstadoMesa.LIBRE, null));
+
+        var resp = controller.reactivar(7L);
+
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        assertTrue(resp.getBody().activa());
+    }
+
+    @Test
+    void laRespuestaIncluyeSiLaMesaEstaActiva() {
+        when(crearMesaUseCase.ejecutar(new CrearMesaCommand(5, 4), 100L)).thenReturn(mesa(EstadoMesa.LIBRE, null));
+
+        assertTrue(controller.crear(new CrearMesaRequest(5, 4)).getBody().activa());
+    }
+
+    @Test
+    void soloElAdministradorDaDeBajaYReactivaMesas() throws Exception {
+        assertEquals("hasRole('ADMINISTRADOR')", permisos("desactivar", Long.class));
+        assertEquals("hasRole('ADMINISTRADOR')", permisos("reactivar", Long.class));
+        assertEquals("hasRole('ADMINISTRADOR')", permisos("listarInactivas"));
     }
 
     @Test
