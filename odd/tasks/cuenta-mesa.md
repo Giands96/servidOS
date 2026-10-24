@@ -60,6 +60,8 @@ Cobrar en una sola operación atómica todo lo pendiente de una mesa: sus rondas
 | T2 | `GET /mesas/{id}/cuenta`: query de pendientes, ítems, caso de uso, controlador, OpenAPI + tests | delegada | [x] | be25b54 |
 | T3 | `POST /mesas/{id}/cuenta/pagar`: V16, entidad/mapper, caso de uso, OpenAPI + tests | delegada | [x] | c2a4577 |
 | T4 | `CAMBIOS_FRONTEND.md` + `docs/progress/2026-10-24-cuenta-mesa.md` | delegada | [x] | ver git log (`docs(frontend): contrato de la cuenta de mesa`) |
+| T5 | R2-2: traducir solo la violación de `pago_pedido_id_key` + tests | inline (2 archivos chicos ya entendidos) | [x] | 0a648e3 |
+| T6 | R2-1: predicado "cobrado" en una sola constante `PAGO_SALDADO` | inline (1 archivo, refactor) | [x] | 576702b |
 
 ## Criterios de aceptación
 - Mesa con 2 rondas MESA + 1 RECOJO vinculado → GET devuelve los 3 y el total correcto.
@@ -118,9 +120,20 @@ Cobrar en una sola operación atómica todo lo pendiente de una mesa: sus rondas
     `buscarPendientesDeCobroEnMesa`; si una cambia sin la otra, la cuenta y la liberación divergen.
   - R2-2: `PagarCuentaMesaUseCase` traduce cualquier `DataIntegrityViolationException` a "La cuenta cambió", no solo
     la violación de `UNIQUE(pedido_id)`; otro fallo de constraint quedaría con un mensaje engañoso.
+- T5 (R2-2, pedido por el usuario antes del merge) RED: `./mvnw -q test -Dtest=PagarCuentaMesaUseCaseTest` -> 1 fallo
+  (`otraViolacionDeIntegridadNoSeDisfrazaDeCuentaCambiada`: esperaba `DataIntegrityViolationException`, salió
+  `BusinessException`). GREEN: `-Dtest='PagarCuentaMesaUseCaseTest,CuentaMesaIntegracionTest'` -> exit 0. Nombre real del
+  constraint verificado en `pg_constraint` (`pago_pedido_id_key`) y fijado por un test de integración (Postgres + Hibernate
+  lo reportan así).
+- T6 (R2-1): el predicado estaba 4 veces (la review vio 3; el filtro `porCobrar` del listado también lo repetía). Refactor
+  sin cambio de comportamiento; guardas: los tests existentes de las 4 queries. Suite completa: `./mvnw -q test` -> exit 0;
+  586 tests, 0 fallos, 0 errores, 0 omitidos.
+- Review de T5-T6: `gentle-ai review assess --base-ref f75ec32 --committed-only` -> riesgo `medium`, `review_due: false`
+  (`under_budget`, 124 líneas). Queda pendiente en el slice.
 - Pendiente de negocio (abierto): ¿los reportes deben leer `cuenta_mesa.vuelto`? Los pagos de una cuenta llevan
   `vuelto = null`.
 
 ## Siguiente paso
 - Push y PR (`single-pr`, squash merge): decisión del usuario.
-- Abierto: decidir si reporting lee `cuenta_mesa.vuelto`; R2-1 y R2-2 como mejoras aparte.
+- PR #25 abierto; merge (squash) cuando CI esté en verde y tenga 1 aprobación.
+- Abierto: decidir si reporting lee `cuenta_mesa.vuelto`.
