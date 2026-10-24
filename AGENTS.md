@@ -47,9 +47,14 @@ API Rest multi-tenant para un sistema de gestión de restaurantes, aplicando una
 - **migrations/** ya aplicadas (crear una nueva, nunca editar una vieja)
 - Modulo **legacy-billing/** (congelado, sin refactors)
 - Nunca leer ni commitear **.env** ni secrets
+- Nunca intentar ni sugerir cambios en la arquitectura sin antes discutirlo con el equipo
+- Nunca eliminar ni tocar algo relacionado con la Base de Datos sin antes discutirlo con el equipo
 
 # 7. Git / PR
 - Commits: Conventional Commits (feat:, fix:, chore:)
+- Commits pequeños y legibles: dividir el trabajo en fases (por ejemplo migración, dominio, casos de uso, API, tests de integración, docs) con un commit por fase, en lugar de un único commit extenso.
+  - Cada commit debe poder leerse y entenderse por sí solo: una sola intención, con sus tests y su documentación junto al cambio.
+  - Esto no habilita commits a medio camino: cada commit compila, deja los tests en verde y cierra una fase completa.
 - Squash merge únicamente
 - PR necesita: tests en verde + 1 aprobación
 
