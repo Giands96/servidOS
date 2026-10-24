@@ -4,8 +4,10 @@ import com.servidos.v1.shared.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesaTest {
 
@@ -140,6 +142,93 @@ class MesaTest {
         var ex = assertThrows(BusinessException.class, mesa::liberar);
 
         assertEquals("La mesa ya está libre", ex.getMessage());
+    }
+
+    @Test
+    void crearDejaLaMesaActiva() {
+        assertTrue(Mesa.crear(10L, 5, 4).isActiva());
+    }
+
+    @Test
+    void desactivarDaDeBajaUnaMesaLibre() {
+        var mesa = Mesa.crear(10L, 5, 4);
+
+        mesa.desactivar();
+
+        assertFalse(mesa.isActiva());
+    }
+
+    @Test
+    void desactivarUnaMesaOcupadaFalla() {
+        var mesa = ocupada(2);
+
+        var ex = assertThrows(BusinessException.class, mesa::desactivar);
+
+        assertEquals("No se puede dar de baja una mesa ocupada", ex.getMessage());
+        assertTrue(mesa.isActiva());
+    }
+
+    @Test
+    void desactivarUnaMesaYaInactivaFalla() {
+        var mesa = Mesa.crear(10L, 5, 4);
+        mesa.desactivar();
+
+        var ex = assertThrows(BusinessException.class, mesa::desactivar);
+
+        assertEquals("La mesa ya está inactiva", ex.getMessage());
+    }
+
+    @Test
+    void reactivarVuelveALaMesaActivaYLibre() {
+        var mesa = Mesa.crear(10L, 5, 4);
+        mesa.desactivar();
+
+        mesa.reactivar();
+
+        assertTrue(mesa.isActiva());
+        assertEquals(EstadoMesa.LIBRE, mesa.getEstado());
+    }
+
+    @Test
+    void reactivarUnaMesaActivaFalla() {
+        var mesa = Mesa.crear(10L, 5, 4);
+
+        var ex = assertThrows(BusinessException.class, mesa::reactivar);
+
+        assertEquals("La mesa ya está activa", ex.getMessage());
+    }
+
+    @Test
+    void unaMesaInactivaNoSePuedeOcupar() {
+        var mesa = Mesa.crear(10L, 5, 4);
+        mesa.desactivar();
+
+        var ex = assertThrows(BusinessException.class, () -> mesa.ocupar(2));
+
+        assertEquals("La mesa está inactiva", ex.getMessage());
+        assertEquals(EstadoMesa.LIBRE, mesa.getEstado());
+    }
+
+    @Test
+    void unaMesaInactivaNoPuedeSerOcupadaPorUnPedido() {
+        var mesa = Mesa.crear(10L, 5, 4);
+        mesa.desactivar();
+
+        var ex = assertThrows(BusinessException.class, mesa::ocuparPorPedido);
+
+        assertEquals("La mesa está inactiva", ex.getMessage());
+        assertEquals(EstadoMesa.LIBRE, mesa.getEstado());
+    }
+
+    @Test
+    void unaMesaInactivaNoSePuedeActualizar() {
+        var mesa = Mesa.crear(10L, 5, 4);
+        mesa.desactivar();
+
+        var ex = assertThrows(BusinessException.class, () -> mesa.actualizar(7, 6));
+
+        assertEquals("La mesa está inactiva", ex.getMessage());
+        assertEquals(5, mesa.getNumero());
     }
 
     @Test

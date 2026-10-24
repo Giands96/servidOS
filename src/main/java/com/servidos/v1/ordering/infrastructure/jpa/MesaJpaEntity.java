@@ -26,4 +26,6 @@ public class MesaJpaEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false, length = 20)
     private EstadoMesa estado;
+    @Column(name = "activa", nullable = false)
+    private boolean activa = true;
 }

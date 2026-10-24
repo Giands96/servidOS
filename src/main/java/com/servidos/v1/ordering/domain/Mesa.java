@@ -18,6 +18,9 @@ public class Mesa {
     /** Personas sentadas ahora; null con la mesa LIBRE o si la ocupó un pedido sin indicarlo. */
     private Integer comensales;
     private EstadoMesa estado;
+    /** Baja lógica: una mesa inactiva no se ocupa ni se edita, pero conserva su historial de pedidos. */
+    @Builder.Default
+    private boolean activa = true;
 
     public static Mesa crear(Long restaurante_id, Integer numero, Integer capacidad) {
         if (restaurante_id == null) throw new BusinessException("El restaurante_id es obligatorio");
@@ -31,6 +34,7 @@ public class Mesa {
     }
 
     public void actualizar(Integer numero, Integer capacidad) {
+        exigirActiva();
         validarNumeroYCapacidad(numero, capacidad);
         if (comensales != null && capacidad < comensales) {
             throw new BusinessException(
@@ -42,6 +46,7 @@ public class Mesa {
 
     /** Sienta a una mesa LIBRE; {@code comensales} va de 1 a la capacidad de la mesa. */
     public void ocupar(Integer comensales) {
+        exigirActiva();
         if (estado == EstadoMesa.OCUPADA) throw new BusinessException("La mesa ya está ocupada");
         if (comensales == null || comensales < 1 || comensales > capacidad) {
             throw new BusinessException("Los comensales deben estar entre 1 y " + capacidad);
@@ -55,6 +60,7 @@ public class Mesa {
      * (otro pedido del mismo grupo, o {@link #ocupar}) no cambia nada.
      */
     public void ocuparPorPedido() {
+        exigirActiva();
         if (estado == EstadoMesa.LIBRE) this.estado = EstadoMesa.OCUPADA;
     }
 
@@ -62,6 +68,23 @@ public class Mesa {
         if (estado == EstadoMesa.LIBRE) throw new BusinessException("La mesa ya está libre");
         this.estado = EstadoMesa.LIBRE;
         this.comensales = null;
+    }
+
+    /** Baja lógica: solo una mesa activa y LIBRE; los pedidos abiertos los revisa el caso de uso. */
+    public void desactivar() {
+        if (!activa) throw new BusinessException("La mesa ya está inactiva");
+        if (estado == EstadoMesa.OCUPADA) throw new BusinessException("No se puede dar de baja una mesa ocupada");
+        this.activa = false;
+    }
+
+    /** Deshace la baja; que el número no lo use otra mesa activa lo revisa el caso de uso. */
+    public void reactivar() {
+        if (activa) throw new BusinessException("La mesa ya está activa");
+        this.activa = true;
+    }
+
+    private void exigirActiva() {
+        if (!activa) throw new BusinessException("La mesa está inactiva");
     }
 
     private static void validarNumeroYCapacidad(Integer numero, Integer capacidad) {
