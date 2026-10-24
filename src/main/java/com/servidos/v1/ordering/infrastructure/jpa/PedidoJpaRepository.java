@@ -17,6 +17,18 @@ public interface PedidoJpaRepository extends JpaRepository<PedidoJpaEntity, Long
     List<PedidoJpaEntity> findByRestauranteIdAndEstado(Long restauranteId, EstadoPedido estado);
 
     /**
+     * El pedido {@code p} ya se saldó: tiene un pago PAGADO o REEMBOLSADO (un reembolso no se
+     * vuelve a cobrar). Es la única definición de "cobrado" para las queries de abajo: la cuenta de
+     * la mesa, su liberación y el listado "por cobrar" tienen que coincidir.
+     */
+    String PAGO_SALDADO = """
+            EXISTS (
+                SELECT 1 FROM pago pg
+                WHERE pg.pedido_id = p.pedido_id AND pg.restaurante_id = p.restaurante_id
+                  AND pg.estado IN ('PAGADO', 'REEMBOLSADO'))
+            """;
+
+    /**
      * Pedidos "abiertos" de una mesa: los que todavía retienen a sus comensales o su cuenta.
      * <ul>
      *   <li>Pedidos MESA: todo pedido no cancelado salvo el ENTREGADO que ya se saldó (pago PAGADO
@@ -34,16 +46,9 @@ public interface PedidoJpaRepository extends JpaRepository<PedidoJpaEntity, Long
             WHERE p.mesa_id = :mesaId AND p.restaurante_id = :restauranteId
               AND p.estado <> 'CANCELADO'
               AND CASE
-                    WHEN p.tipo_pedido = 'MESA' THEN
-                        NOT (p.estado = 'ENTREGADO' AND EXISTS (
-                            SELECT 1 FROM pago pg
-                            WHERE pg.pedido_id = p.pedido_id AND pg.restaurante_id = p.restaurante_id
-                              AND pg.estado IN ('PAGADO', 'REEMBOLSADO')))
-                    ELSE
-                        NOT EXISTS (
-                            SELECT 1 FROM pago pg
-                            WHERE pg.pedido_id = p.pedido_id AND pg.restaurante_id = p.restaurante_id
-                              AND pg.estado IN ('PAGADO', 'REEMBOLSADO'))
+                    WHEN p.tipo_pedido = 'MESA' THEN NOT (p.estado = 'ENTREGADO' AND\s""" + PAGO_SALDADO + """
+                    )
+                    ELSE NOT\s""" + PAGO_SALDADO + """
                   END
             """, nativeQuery = true)
     long contarAbiertosEnMesa(@Param("mesaId") Long mesaId, @Param("restauranteId") Long restauranteId);
@@ -58,10 +63,7 @@ public interface PedidoJpaRepository extends JpaRepository<PedidoJpaEntity, Long
             SELECT p.* FROM pedido p
             WHERE p.mesa_id = :mesaId AND p.restaurante_id = :restauranteId
               AND p.estado <> 'CANCELADO'
-              AND NOT EXISTS (
-                    SELECT 1 FROM pago pg
-                    WHERE pg.pedido_id = p.pedido_id AND pg.restaurante_id = p.restaurante_id
-                      AND pg.estado IN ('PAGADO', 'REEMBOLSADO'))
+              AND NOT\s""" + PAGO_SALDADO + """
             ORDER BY p.created_at, p.pedido_id
             """, nativeQuery = true)
     List<PedidoJpaEntity> buscarPendientesDeCobroEnMesa(@Param("mesaId") Long mesaId,
@@ -73,10 +75,8 @@ public interface PedidoJpaRepository extends JpaRepository<PedidoJpaEntity, Long
               AND (CAST(:estado AS varchar) IS NULL OR p.estado = CAST(:estado AS varchar))
               AND (CAST(:desde AS timestamp) IS NULL OR p.created_at >= CAST(:desde AS timestamp))
               AND (CAST(:hasta AS timestamp) IS NULL OR p.created_at < CAST(:hasta AS timestamp))
-              AND (:porCobrar = false OR (p.estado <> 'CANCELADO' AND NOT EXISTS (
-                    SELECT 1 FROM pago pg
-                    WHERE pg.pedido_id = p.pedido_id AND pg.restaurante_id = p.restaurante_id
-                      AND pg.estado IN ('PAGADO', 'REEMBOLSADO'))))
+              AND (:porCobrar = false OR (p.estado <> 'CANCELADO' AND NOT\s""" + PAGO_SALDADO + """
+              ))
             """;
 
     /**
