@@ -98,12 +98,29 @@ Cobrar en una sola operación atómica todo lo pendiente de una mesa: sus rondas
 - T3 GREEN: `./mvnw -q test -Dtest=SubscriptionFilterTest,PagarCuentaMesaUseCaseTest,CuentaMesaControllerTest,
   CuentaMesaIntegracionTest,CuentaMesaSeguridadIntegracionTest` -> exit 0 (16 + 10 + 5 + 11 + 15 tests).
 - Suite completa tras T3: `./mvnw -q test` -> exit 0; 584 tests, 0 fallos, 0 errores, 0 omitidos.
-- Desviación: `SubscriptionFilter` deja pasar `POST /api/v1/mesas/{id}/cuenta/pagar` con el restaurante bloqueado,
+- Desviación (confirmada por el usuario el 2026-10-24: se mantiene): `SubscriptionFilter` deja pasar `POST /api/v1/mesas/{id}/cuenta/pagar` con el restaurante bloqueado,
   igual que `POST /api/v1/pagos` (cobrar pedidos en curso). Sin eso la cuenta daría 402 donde el pago individual no.
 
 - T4: documentación (sin código): `CAMBIOS_FRONTEND.md` §18 (cuenta de mesa) y §19 (regla de liberación), tabla
   resumen, ruta en §5 y checklist; `docs/progress/2026-10-24-cuenta-mesa.md` (local, `docs/` está en .gitignore) con el
   fragmento para `FRONTEND_CONTEXT.md`. Verificación: relectura estructural de ambos archivos.
 
+- Verificación del parent: diff de `PagarCuentaMesaUseCase`, `V16__cuenta_mesa.sql`, `contarAbiertosEnMesa` y
+  `SubscriptionFilter` revisado contra las decisiones. Spot check:
+  `./mvnw -q test -Dtest='CuentaMesaIntegracionTest,CuentaMesaSeguridadIntegracionTest,MesaCicloCompletoIntegracionTest'`
+  -> exit 0 (11 + 15 + 13 tests, 0 fallos).
+- Review (RDD): `gentle-ai review assess --base-ref main --committed-only --untracked-scope=exclude` -> riesgo `high`
+  (hot path de seguridad: `SubscriptionFilter`), `review_due: true`. START devolvió el consentimiento (lineage
+  `review-f6e2a977e26d12b1`). Consentimiento otorgado por el usuario; 4 lentes (riesgo, resiliencia, legibilidad,
+  confiabilidad) -> `approved`, sin hallazgos bloqueantes. Acknowledge -> `authority: burned`. Cubre c8b203e..f75ec32.
+- Sugerencias no bloqueantes (trabajo posterior aparte):
+  - R2-1: el predicado "cobrado" (PAGADO/REEMBOLSADO) se repite en `contarAbiertosEnMesa` y
+    `buscarPendientesDeCobroEnMesa`; si una cambia sin la otra, la cuenta y la liberación divergen.
+  - R2-2: `PagarCuentaMesaUseCase` traduce cualquier `DataIntegrityViolationException` a "La cuenta cambió", no solo
+    la violación de `UNIQUE(pedido_id)`; otro fallo de constraint quedaría con un mensaje engañoso.
+- Pendiente de negocio (abierto): ¿los reportes deben leer `cuenta_mesa.vuelto`? Los pagos de una cuenta llevan
+  `vuelto = null`.
+
 ## Siguiente paso
-- Decisión del usuario: confirmar la desviación de `SubscriptionFilter`, push y PR (`single-pr`, squash merge).
+- Push y PR (`single-pr`, squash merge): decisión del usuario.
+- Abierto: decidir si reporting lee `cuenta_mesa.vuelto`; R2-1 y R2-2 como mejoras aparte.
