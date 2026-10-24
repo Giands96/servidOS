@@ -58,8 +58,8 @@ Cobrar en una sola operación atómica todo lo pendiente de una mesa: sus rondas
 |----|-------|------|--------|--------|
 | T1 | Regla de liberación refinada en `contarAbiertosEnMesa` + tests de integración | delegada (writer único T1-T4: 2+ archivos no triviales) | [x] | c8b203e |
 | T2 | `GET /mesas/{id}/cuenta`: query de pendientes, ítems, caso de uso, controlador, OpenAPI + tests | delegada | [x] | be25b54 |
-| T3 | `POST /mesas/{id}/cuenta/pagar`: V16, entidad/mapper, caso de uso, OpenAPI + tests | delegada | [x] | ver git log (`feat(pagos): cobro conjunto de la cuenta de mesa`) |
-| T4 | `CAMBIOS_FRONTEND.md` + `docs/progress/2026-10-24-cuenta-mesa.md` | delegada | [ ] | |
+| T3 | `POST /mesas/{id}/cuenta/pagar`: V16, entidad/mapper, caso de uso, OpenAPI + tests | delegada | [x] | c2a4577 |
+| T4 | `CAMBIOS_FRONTEND.md` + `docs/progress/2026-10-24-cuenta-mesa.md` | delegada | [x] | ver git log (`docs(frontend): contrato de la cuenta de mesa`) |
 
 ## Criterios de aceptación
 - Mesa con 2 rondas MESA + 1 RECOJO vinculado → GET devuelve los 3 y el total correcto.
@@ -101,5 +101,9 @@ Cobrar en una sola operación atómica todo lo pendiente de una mesa: sus rondas
 - Desviación: `SubscriptionFilter` deja pasar `POST /api/v1/mesas/{id}/cuenta/pagar` con el restaurante bloqueado,
   igual que `POST /api/v1/pagos` (cobrar pedidos en curso). Sin eso la cuenta daría 402 donde el pago individual no.
 
+- T4: documentación (sin código): `CAMBIOS_FRONTEND.md` §18 (cuenta de mesa) y §19 (regla de liberación), tabla
+  resumen, ruta en §5 y checklist; `docs/progress/2026-10-24-cuenta-mesa.md` (local, `docs/` está en .gitignore) con el
+  fragmento para `FRONTEND_CONTEXT.md`. Verificación: relectura estructural de ambos archivos.
+
 ## Siguiente paso
-- T4.
+- Decisión del usuario: confirmar la desviación de `SubscriptionFilter`, push y PR (`single-pr`, squash merge).
