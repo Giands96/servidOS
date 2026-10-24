@@ -25,7 +25,7 @@ public interface MesaJpaRepository extends JpaRepository<MesaJpaEntity, Long> {
 
     boolean existsByRestauranteIdAndNumeroAndActivaTrueAndMesaIdNot(Long restauranteId, Integer numero, Long mesaId);
 
-    boolean existsByMesaIdAndRestauranteId(Long mesaId, Long restauranteId);
+    Optional<MesaJpaEntity> findByMesaIdAndRestauranteId(Long mesaId, Long restauranteId);
 
     /**
      * Trae la mesa del tenant con lock de escritura (SELECT ... FOR UPDATE) hasta el fin de la

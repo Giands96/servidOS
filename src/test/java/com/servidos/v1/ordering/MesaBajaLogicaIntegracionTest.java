@@ -188,6 +188,18 @@ class MesaBajaLogicaIntegracionTest {
     }
 
     @Test
+    void unaMesaInactivaNoRecibePedidosDeRecojoConEsaMesa() {
+        desactivarMesa.ejecutar(mesaId, restauranteId);
+        var recojo = new CrearPedidoCommand(TipoPedido.RECOJO, mesaId, null, null,
+                List.of(new CrearPedidoItem(productoId, 1, null)));
+
+        var ex = assertThrows(BusinessException.class,
+                () -> crearPedido.ejecutar(recojo, restauranteId, usuarioId));
+
+        assertEquals("La mesa está inactiva", ex.getMessage());
+    }
+
+    @Test
     void desactivarUnaMesaDeOtroRestauranteSeRechaza() {
         var ex = assertThrows(BusinessException.class, () -> desactivarMesa.ejecutar(mesaId, otroRestauranteId));
 

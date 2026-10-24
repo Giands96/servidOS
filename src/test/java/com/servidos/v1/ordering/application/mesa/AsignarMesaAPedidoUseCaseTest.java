@@ -95,21 +95,47 @@ class AsignarMesaAPedidoUseCaseTest {
 
     @Test
     void pedidoQueNoEsDeMesaSoloValidaQueLaMesaSeaDelRestaurante() {
-        when(mesaRepository.existsByMesaIdAndRestauranteId(3L, 10L)).thenReturn(true);
+        var e = entidad(EstadoMesa.LIBRE, null);
+        when(mesaRepository.findByMesaIdAndRestauranteId(3L, 10L)).thenReturn(Optional.of(e));
 
         useCase.ejecutar(3L, TipoPedido.DELIVERY, 10L);
 
+        assertEquals(EstadoMesa.LIBRE, e.getEstado());
         verify(mesaRepository, never()).bloquearPorIdYRestaurante(any(), any());
         verify(mesaRepository, never()).saveAndFlush(any());
     }
 
     @Test
     void pedidoQueNoEsDeMesaConMesaAjenaDa400() {
-        when(mesaRepository.existsByMesaIdAndRestauranteId(3L, 99L)).thenReturn(false);
+        when(mesaRepository.findByMesaIdAndRestauranteId(3L, 99L)).thenReturn(Optional.empty());
 
         var ex = assertThrows(BusinessException.class, () -> useCase.ejecutar(3L, TipoPedido.DELIVERY, 99L));
 
         assertEquals("La mesa no existe", ex.getMessage());
+    }
+
+    @Test
+    void pedidoDeliveryConMesaInactivaDa400() {
+        var e = entidad(EstadoMesa.LIBRE, null);
+        e.setActiva(false);
+        when(mesaRepository.findByMesaIdAndRestauranteId(3L, 10L)).thenReturn(Optional.of(e));
+
+        var ex = assertThrows(BusinessException.class, () -> useCase.ejecutar(3L, TipoPedido.DELIVERY, 10L));
+
+        assertEquals("La mesa está inactiva", ex.getMessage());
+        verify(mesaRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void pedidoRecojoConMesaInactivaDa400() {
+        var e = entidad(EstadoMesa.LIBRE, null);
+        e.setActiva(false);
+        when(mesaRepository.findByMesaIdAndRestauranteId(3L, 10L)).thenReturn(Optional.of(e));
+
+        var ex = assertThrows(BusinessException.class, () -> useCase.ejecutar(3L, TipoPedido.RECOJO, 10L));
+
+        assertEquals("La mesa está inactiva", ex.getMessage());
+        verify(mesaRepository, never()).saveAndFlush(any());
     }
 
     @Test
