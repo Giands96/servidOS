@@ -57,7 +57,7 @@ class CrearMesaUseCaseTest {
 
     @Test
     void numeroRepetidoEnElRestauranteDa400YNoGuarda() {
-        when(mesaRepository.existsByRestauranteIdAndNumero(10L, 5)).thenReturn(true);
+        when(mesaRepository.existsByRestauranteIdAndNumeroAndActivaTrue(10L, 5)).thenReturn(true);
 
         var ex = assertThrows(BusinessException.class,
                 () -> useCase.ejecutar(new CrearMesaCommand(5, 4), 10L));

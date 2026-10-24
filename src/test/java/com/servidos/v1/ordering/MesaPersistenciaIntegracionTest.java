@@ -103,6 +103,39 @@ class MesaPersistenciaIntegracionTest {
     }
 
     @Test
+    void laColumnaActivaVieneEnTruePorDefecto() {
+        jdbc.update("INSERT INTO mesa (restaurante_id, numero, capacidad) VALUES (?, 1, 4)", restauranteId);
+
+        var activa = jdbc.queryForObject(
+                "SELECT activa FROM mesa WHERE restaurante_id = ? AND numero = 1", Boolean.class, restauranteId);
+
+        assertEquals(true, activa);
+    }
+
+    @Test
+    void variasMesasInactivasPuedenCompartirNumeroConUnaActiva() {
+        for (int i = 0; i < 2; i++) {
+            jdbc.update("INSERT INTO mesa (restaurante_id, numero, capacidad, activa) VALUES (?, 3, 4, FALSE)",
+                    restauranteId);
+        }
+        jdbc.update("INSERT INTO mesa (restaurante_id, numero, capacidad, activa) VALUES (?, 3, 4, TRUE)",
+                restauranteId);
+
+        var total = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM mesa WHERE restaurante_id = ? AND numero = 3", Integer.class, restauranteId);
+
+        assertEquals(3, total);
+    }
+
+    @Test
+    void laBaseRechazaDosMesasActivasConElMismoNumero() {
+        jdbc.update("INSERT INTO mesa (restaurante_id, numero, capacidad) VALUES (?, 3, 4)", restauranteId);
+
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.update(
+                "INSERT INTO mesa (restaurante_id, numero, capacidad) VALUES (?, 3, 4)", restauranteId));
+    }
+
+    @Test
     void laBaseRechazaCapacidadCero() {
         assertThrows(DataIntegrityViolationException.class, () -> jdbc.update(
                 "INSERT INTO mesa (restaurante_id, numero, capacidad) VALUES (?, 1, 0)", restauranteId));

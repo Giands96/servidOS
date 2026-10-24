@@ -8,10 +8,12 @@ import com.servidos.v1.ordering.application.mesa.ActualizarMesaCommand;
 import com.servidos.v1.ordering.application.mesa.ActualizarMesaUseCase;
 import com.servidos.v1.ordering.application.mesa.CrearMesaCommand;
 import com.servidos.v1.ordering.application.mesa.CrearMesaUseCase;
+import com.servidos.v1.ordering.application.mesa.DesactivarMesaUseCase;
 import com.servidos.v1.ordering.application.mesa.LiberarMesaUseCase;
 import com.servidos.v1.ordering.application.mesa.ListarMesasUseCase;
 import com.servidos.v1.ordering.application.mesa.OcuparMesaCommand;
 import com.servidos.v1.ordering.application.mesa.OcuparMesaUseCase;
+import com.servidos.v1.ordering.application.mesa.ReactivarMesaUseCase;
 import com.servidos.v1.ordering.domain.EstadoMesa;
 import com.servidos.v1.ordering.domain.Mesa;
 import com.servidos.v1.shared.exception.ErrorResponse;
@@ -53,6 +55,8 @@ public class MesaController {
     private final ActualizarMesaUseCase actualizarMesaUseCase;
     private final OcuparMesaUseCase ocuparMesaUseCase;
     private final LiberarMesaUseCase liberarMesaUseCase;
+    private final DesactivarMesaUseCase desactivarMesaUseCase;
+    private final ReactivarMesaUseCase reactivarMesaUseCase;
 
     @PostMapping
     @PreAuthorize("hasRole('ADMINISTRADOR')")
@@ -79,7 +83,7 @@ public class MesaController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION','CAJERO','MESERO')")
     @Operation(summary = "Listar mesas del restaurante actual",
-            description = "Ordenadas por número. Filtro opcional `estado` (LIBRE u OCUPADA).")
+            description = "Solo mesas activas, ordenadas por número. Filtro opcional `estado` (LIBRE u OCUPADA).")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Mesas del tenant",
                     content = @Content(array = @ArraySchema(schema = @Schema(implementation = MesaResponse.class)))),
@@ -90,6 +94,23 @@ public class MesaController {
     public ResponseEntity<List<MesaResponse>> listar(
             @Parameter(description = "Solo mesas en este estado") @RequestParam(required = false) EstadoMesa estado) {
         return ResponseEntity.ok(listarMesasUseCase.listar(TenantContext.getRestauranteId(), estado).stream()
+                .map(this::toResponse)
+                .toList());
+    }
+
+    @GetMapping("/inactivas")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Listar mesas dadas de baja del restaurante actual",
+            description = "Ordenadas por número. Se pueden reactivar con `POST /{id}/reactivar`.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Mesas inactivas del tenant",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = MesaResponse.class)))),
+            @ApiResponse(responseCode = "401", description = "Sin sesión",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Sin permiso",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
+    public ResponseEntity<List<MesaResponse>> listarInactivas() {
+        return ResponseEntity.ok(listarMesasUseCase.listarInactivas(TenantContext.getRestauranteId()).stream()
                 .map(this::toResponse)
                 .toList());
     }
@@ -159,7 +180,45 @@ public class MesaController {
         return ResponseEntity.ok(toResponse(liberarMesaUseCase.ejecutar(id, TenantContext.getRestauranteId())));
     }
 
+    @PostMapping("/{id}/desactivar")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Dar de baja una mesa (baja lógica)",
+            description = "Solo una mesa LIBRE y sin pedidos abiertos. No se borra: el historial de pedidos "
+                    + "y los reportes se conservan, y el número queda disponible para otra mesa.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Mesa dada de baja",
+                    content = @Content(schema = @Schema(implementation = MesaResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Inexistente, ya inactiva, ocupada o con pedidos abiertos",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Sin sesión",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Sin permiso",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
+    public ResponseEntity<MesaResponse> desactivar(
+            @Parameter(description = "ID de la mesa", example = "1") @PathVariable Long id) {
+        return ResponseEntity.ok(toResponse(desactivarMesaUseCase.ejecutar(id, TenantContext.getRestauranteId())));
+    }
+
+    @PostMapping("/{id}/reactivar")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Reactivar una mesa dada de baja",
+            description = "Falla si otra mesa activa ya usa su número.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Mesa reactivada",
+                    content = @Content(schema = @Schema(implementation = MesaResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Inexistente, ya activa o número usado por otra mesa activa",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Sin sesión",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Sin permiso",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
+    public ResponseEntity<MesaResponse> reactivar(
+            @Parameter(description = "ID de la mesa", example = "1") @PathVariable Long id) {
+        return ResponseEntity.ok(toResponse(reactivarMesaUseCase.ejecutar(id, TenantContext.getRestauranteId())));
+    }
+
     private MesaResponse toResponse(Mesa m) {
-        return new MesaResponse(m.getMesa_id(), m.getNumero(), m.getCapacidad(), m.getComensales(), m.getEstado());
+        return new MesaResponse(m.getMesa_id(), m.getNumero(), m.getCapacidad(), m.getComensales(), m.getEstado(),
+                m.isActiva());
     }
 }

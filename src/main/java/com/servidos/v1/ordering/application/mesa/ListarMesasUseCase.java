@@ -19,13 +19,21 @@ public class ListarMesasUseCase {
     private final MesaJpaRepository mesaRepository;
     private final MesaMapper mesaMapper;
 
-    /** Mesas del restaurante por número; {@code estado} null = todas. */
+    /** Mesas activas del restaurante por número; {@code estado} null = todas. */
     @Transactional(readOnly = true)
     public List<Mesa> listar(Long restauranteId, EstadoMesa estado) {
         if (restauranteId == null) throw new BusinessException("Restaurante no identificado");
         List<MesaJpaEntity> mesas = estado == null
-                ? mesaRepository.findByRestauranteIdOrderByNumeroAsc(restauranteId)
-                : mesaRepository.findByRestauranteIdAndEstadoOrderByNumeroAsc(restauranteId, estado);
+                ? mesaRepository.findByRestauranteIdAndActivaTrueOrderByNumeroAsc(restauranteId)
+                : mesaRepository.findByRestauranteIdAndActivaTrueAndEstadoOrderByNumeroAsc(restauranteId, estado);
         return mesas.stream().map(mesaMapper::toDomain).toList();
+    }
+
+    /** Mesas dadas de baja del restaurante, por número. */
+    @Transactional(readOnly = true)
+    public List<Mesa> listarInactivas(Long restauranteId) {
+        if (restauranteId == null) throw new BusinessException("Restaurante no identificado");
+        return mesaRepository.findByRestauranteIdAndActivaFalseOrderByNumeroAsc(restauranteId).stream()
+                .map(mesaMapper::toDomain).toList();
     }
 }

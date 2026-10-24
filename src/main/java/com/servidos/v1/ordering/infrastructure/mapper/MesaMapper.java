@@ -15,6 +15,7 @@ public class MesaMapper {
                 .capacidad(e.getCapacidad())
                 .comensales(e.getComensales())
                 .estado(e.getEstado())
+                .activa(e.isActiva())
                 .build();
     }
 
@@ -33,5 +34,6 @@ public class MesaMapper {
         entity.setCapacidad(domain.getCapacidad());
         entity.setComensales(domain.getComensales());
         entity.setEstado(domain.getEstado());
+        entity.setActiva(domain.isActiva());
     }
 }

@@ -7,4 +7,5 @@ public record MesaResponse(
         Integer numero,
         Integer capacidad,
         Integer comensales,
-        EstadoMesa estado) {}
+        EstadoMesa estado,
+        Boolean activa) {}

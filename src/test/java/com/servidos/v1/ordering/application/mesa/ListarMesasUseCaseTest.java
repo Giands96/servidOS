@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
@@ -41,8 +42,8 @@ class ListarMesasUseCaseTest {
     }
 
     @Test
-    void sinFiltroListaTodasLasMesasDelRestaurante() {
-        when(mesaRepository.findByRestauranteIdOrderByNumeroAsc(10L))
+    void sinFiltroListaTodasLasMesasActivasDelRestaurante() {
+        when(mesaRepository.findByRestauranteIdAndActivaTrueOrderByNumeroAsc(10L))
                 .thenReturn(List.of(entidad(1L, 1, EstadoMesa.LIBRE), entidad(2L, 2, EstadoMesa.OCUPADA)));
 
         var mesas = useCase.listar(10L, null);
@@ -53,7 +54,7 @@ class ListarMesasUseCaseTest {
 
     @Test
     void conEstadoFiltraPorEseEstado() {
-        when(mesaRepository.findByRestauranteIdAndEstadoOrderByNumeroAsc(10L, EstadoMesa.LIBRE))
+        when(mesaRepository.findByRestauranteIdAndActivaTrueAndEstadoOrderByNumeroAsc(10L, EstadoMesa.LIBRE))
                 .thenReturn(List.of(entidad(1L, 1, EstadoMesa.LIBRE)));
 
         var mesas = useCase.listar(10L, EstadoMesa.LIBRE);
@@ -65,5 +66,23 @@ class ListarMesasUseCaseTest {
     @Test
     void sinRestauranteDa400() {
         assertThrows(BusinessException.class, () -> useCase.listar(null, null));
+    }
+
+    @Test
+    void listarInactivasDevuelveSoloLasDadasDeBajaDelRestaurante() {
+        var baja = entidad(4L, 4, EstadoMesa.LIBRE);
+        baja.setActiva(false);
+        when(mesaRepository.findByRestauranteIdAndActivaFalseOrderByNumeroAsc(10L)).thenReturn(List.of(baja));
+
+        var mesas = useCase.listarInactivas(10L);
+
+        assertEquals(1, mesas.size());
+        assertEquals(4L, mesas.get(0).getMesa_id());
+        assertFalse(mesas.get(0).isActiva());
+    }
+
+    @Test
+    void listarInactivasSinRestauranteDa400() {
+        assertThrows(BusinessException.class, () -> useCase.listarInactivas(null));
     }
 }
