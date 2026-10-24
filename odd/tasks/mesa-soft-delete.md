@@ -52,6 +52,7 @@ Hoy no existe forma de sacar una mesa: no hay `DELETE` ni estado de baja. Un bor
 | T2 | Casos de uso desactivar/reactivar + ajustes en crear/actualizar/listar/asignar + tests | delegada | [x] | 675446e |
 | T3 | API: endpoints, `MesaResponse.activa`, OpenAPI + tests de controlador | delegada | [x] | dbc8d77 |
 | T4 | Docs: `docs/progress/2026-10-23-mesa-soft-delete.md` | inline (un archivo mecánico) | [x] | sin commit: `docs/` está en `.gitignore` (solo local) |
+| T5 | Rechazar mesa inactiva en pedidos DELIVERY/RECOJO con `mesaId` + tests | inline (2 archivos chicos ya entendidos) | [x] | ver Progreso |
 
 ## Criterios de aceptación
 - Un admin desactiva una mesa `LIBRE` sin pedidos abiertos; deja de aparecer en `GET /mesas` y aparece en `/inactivas`.
@@ -83,9 +84,14 @@ Hoy no existe forma de sacar una mesa: no hay `DELETE` ni estado de baja. Un bor
   `review_due: false`, motivo `under_budget`; el slice queda pendiente hasta que un commit posterior alcance el presupuesto.
 - `listarInactivas` vive en `ListarMesasUseCase` (misma convención de listado), no en un caso de uso aparte.
 
-## Preguntas abiertas
-- `AsignarMesaAPedidoUseCase` todavía acepta un pedido DELIVERY/RECOJO que trae el `mesaId` de una mesa inactiva
-  (solo la ruta `MESA` la rechaza). Decisión del usuario pendiente.
+- T5 (decidido por el usuario: cualquier pedido con `mesaId` de una mesa inactiva se rechaza, sin importar el tipo).
+  `existsByMesaIdAndRestauranteId` se reemplaza por `findByMesaIdAndRestauranteId` (sin lock: un pedido no-MESA no
+  cambia la mesa). RED: `./mvnw -q test -Dtest='AsignarMesaAPedidoUseCaseTest,MesaBajaLogicaIntegracionTest'` -> error de
+  compilación (`findByMesaIdAndRestauranteId` no existe). GREEN: esas clases + `CrearPedidoUseCaseTest`,
+  `CrearPedidoIntegracionTest`, `MesaPedidoIntegracionTest` -> exit 0 (AsignarMesa 9, BajaLogica 10).
+  Suite completa: `./mvnw -q test` -> exit 0; 534 tests, 0 fallos, 0 errores, 0 omitidos.
+- Revisión RDD: el hook de stop ofreció revisar el candidato `workspace` (70 archivos, 16.381 líneas: los archivos staged
+  ajenos, no esta feature). Consentimiento pendiente del usuario.
 
 ## Siguiente paso
-- Resolver la pregunta abierta; luego push y PR (decisión del usuario, squash merge).
+- Respuesta del usuario al consentimiento de revisión; luego push y PR (decisión del usuario, squash merge).
