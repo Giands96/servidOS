@@ -56,8 +56,8 @@ Cobrar en una sola operación atómica todo lo pendiente de una mesa: sus rondas
 ## Tareas
 | ID | Tarea | Ruta | Estado | Commit |
 |----|-------|------|--------|--------|
-| T1 | Regla de liberación refinada en `contarAbiertosEnMesa` + tests de integración | delegada (writer único T1-T4: 2+ archivos no triviales) | [ ] | |
-| T2 | `GET /mesas/{id}/cuenta`: query de pendientes, ítems, caso de uso, controlador, OpenAPI + tests | delegada | [ ] | |
+| T1 | Regla de liberación refinada en `contarAbiertosEnMesa` + tests de integración | delegada (writer único T1-T4: 2+ archivos no triviales) | [x] | c8b203e |
+| T2 | `GET /mesas/{id}/cuenta`: query de pendientes, ítems, caso de uso, controlador, OpenAPI + tests | delegada | [x] | ver git log (`feat(pagos): consulta de la cuenta de mesa`) |
 | T3 | `POST /mesas/{id}/cuenta/pagar`: V16, entidad/mapper, caso de uso, OpenAPI + tests | delegada | [ ] | |
 | T4 | `CAMBIOS_FRONTEND.md` + `docs/progress/2026-10-24-cuenta-mesa.md` | delegada | [ ] | |
 
@@ -82,5 +82,16 @@ Cobrar en una sola operación atómica todo lo pendiente de una mesa: sus rondas
 - Baseline con Docker levantado: `./mvnw -q test` -> exit 0; 534 tests, 0 fallos, 0 errores, 0 omitidos.
 - RDD: on (global).
 
+- T1 RED: `./mvnw -q test -Dtest=MesaCicloCompletoIntegracionTest,MesaOcuparLiberarIntegracionTest` -> 4 fallos
+  (24 tests): recojo vinculado sin cobrar no retenía la mesa (auto y manual) y `contarAbiertosEnMesa` daba 0 en vez de 3.
+- T1 GREEN: mismo comando + `*Mesa*Test,*Pago*Test,Mesa*IntegracionTest,ReembolsoCancelaPedidoIntegracionTest,
+  ListarPedidosIntegracionTest` -> exit 0, 0 fallos. Tests existentes cambiados en `MesaOcuparLiberarIntegracionTest`:
+  `losPedidosDeliveryYRecojoConMesaNoRetienenLaMesa` y `liberarManualIgnoraPedidosNoMesaAbiertos` asumían la regla vieja
+  (no-MESA nunca retiene); se reemplazaron por 4 tests de la regla nueva.
+- T2 RED: compilación fallida (sin `ConsultarCuentaMesaUseCase`, `CuentaMesaController`, `CuentaMesa`, queries nuevas).
+- T2 GREEN: `./mvnw -q test -Dtest='ConsultarCuentaMesaUseCaseTest,CuentaMesa*Test,*Mesa*Test,*Pago*Test,Mesa*IntegracionTest,
+  ReembolsoCancelaPedidoIntegracionTest,ListarPedidosIntegracionTest'` -> exit 0 (use case 4, controller 2, integración 4,
+  seguridad HTTP 6 tests).
+
 ## Siguiente paso
-- T1.
+- T3.
