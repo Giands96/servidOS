@@ -21,6 +21,7 @@ import com.servidos.v1.payment.application.cuenta.PagarCuentaMesaCommand;
 import com.servidos.v1.payment.application.cuenta.PagarCuentaMesaUseCase;
 import com.servidos.v1.payment.domain.EstadoPago;
 import com.servidos.v1.payment.infrastructure.jpa.CuentaMesaJpaRepository;
+import com.servidos.v1.payment.infrastructure.jpa.PagoJpaEntity;
 import com.servidos.v1.payment.infrastructure.jpa.PagoJpaRepository;
 import com.servidos.v1.payment.application.pago.RegistrarPagoCommand;
 import com.servidos.v1.payment.application.pago.RegistrarPagoUseCase;
@@ -30,11 +31,13 @@ import com.servidos.v1.shared.security.CurrentUser;
 import com.servidos.v1.tenant.domain.EstadoRestaurante;
 import com.servidos.v1.tenant.infrastructure.jpa.RestauranteJpaEntity;
 import com.servidos.v1.tenant.infrastructure.jpa.RestauranteJpaRepository;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -293,6 +296,29 @@ class CuentaMesaIntegracionTest {
         // Con la cuenta recargada (solo b) el cobro sale.
         var cuenta = pagarCuenta.ejecutar(pagar(MetodoPago.YAPE, null, b), restauranteId, usuarioId);
         assertEquals(1, cuenta.pagos().size());
+    }
+
+    @Test
+    void elUniqueDePagoPorPedidoLlegaConElNombreQueReconoceElCobro() {
+        // PagarCuentaMesaUseCase solo traduce a "La cuenta cambió" la violación de este constraint;
+        // acá se fija que Postgres + Hibernate la reportan con ese nombre.
+        Long a = pedido(TipoPedido.MESA, 1);
+        registrarPago.ejecutar(new RegistrarPagoCommand(a, MetodoPago.YAPE, null, null), restauranteId, usuarioId);
+
+        var duplicado = new PagoJpaEntity();
+        duplicado.setPedidoId(a);
+        duplicado.setRestauranteId(restauranteId);
+        duplicado.setUsuarioId(usuarioId);
+        duplicado.setMetodoPago(MetodoPago.YAPE);
+        duplicado.setMonto(new BigDecimal("25.00"));
+        duplicado.setEstado(EstadoPago.PAGADO);
+        var ex = assertThrows(DataIntegrityViolationException.class, () -> pagoRepository.saveAndFlush(duplicado));
+
+        String constraint = null;
+        for (Throwable c = ex; c != null; c = c.getCause()) {
+            if (c instanceof ConstraintViolationException cve) constraint = cve.getConstraintName();
+        }
+        assertEquals("pago_pedido_id_key", constraint);
     }
 
     @Test

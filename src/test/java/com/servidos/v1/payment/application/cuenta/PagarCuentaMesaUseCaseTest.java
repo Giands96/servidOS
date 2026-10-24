@@ -25,18 +25,22 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -240,7 +244,7 @@ class PagarCuentaMesaUseCaseTest {
             PagoJpaEntity p = i.getArgument(0);
             p.setPagoId(pagoIds.incrementAndGet());
             return p;
-        }).doThrow(new DataIntegrityViolationException("pago_pedido_id_key"))
+        }).doThrow(violacionDe("pago_pedido_id_key"))
                 .when(pagoRepository).saveAndFlush(any());
 
         var ex = assertThrows(BusinessException.class,
@@ -248,6 +252,25 @@ class PagarCuentaMesaUseCaseTest {
 
         assertEquals(CUENTA_CAMBIO, ex.getMessage());
         verify(eventPublisher, never()).publish(any());
+    }
+
+    @Test
+    void otraViolacionDeIntegridadNoSeDisfrazaDeCuentaCambiada() {
+        cuentaConDosPedidos();
+        var otra = violacionDe("pago_cuenta_id_fkey");
+        doThrow(otra).when(pagoRepository).saveAndFlush(any());
+
+        var ex = assertThrows(DataIntegrityViolationException.class,
+                () -> useCase.ejecutar(cmd(MetodoPago.YAPE, null, 10L, 11L), 1L, 5L));
+
+        assertSame(otra, ex);
+        verify(eventPublisher, never()).publish(any());
+    }
+
+    /** Como la arma Spring con Postgres: la causa de Hibernate trae el nombre del constraint. */
+    private static DataIntegrityViolationException violacionDe(String constraint) {
+        return new DataIntegrityViolationException("could not execute statement",
+                new ConstraintViolationException("duplicate key", new SQLException("23505"), constraint));
     }
 
     @Test

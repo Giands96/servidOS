@@ -14,6 +14,7 @@ import com.servidos.v1.payment.infrastructure.mapper.PagoMapper;
 import com.servidos.v1.shared.event.EventPublisher;
 import com.servidos.v1.shared.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +47,7 @@ import java.util.Set;
 public class PagarCuentaMesaUseCase {
 
     private static final String CUENTA_CAMBIO = "La cuenta cambió, vuelva a cargarla";
+    private static final String PAGO_UNICO_POR_PEDIDO = "pago_pedido_id_key";
 
     private final MesaJpaRepository mesaRepository;
     private final PedidoJpaRepository pedidoRepository;
@@ -106,7 +108,9 @@ public class PagarCuentaMesaUseCase {
                 pagos.add(pagoRepository.saveAndFlush(pagoMapper.toEntity(pago)));
             } catch (DataIntegrityViolationException e) {
                 // Un pago individual del mismo pedido se coló entre el recálculo y el insert.
-                throw new BusinessException(CUENTA_CAMBIO);
+                // Cualquier otra violación es un error real y sale tal cual.
+                if (violaPagoUnicoPorPedido(e)) throw new BusinessException(CUENTA_CAMBIO);
+                throw e;
             }
         }
 
@@ -116,5 +120,15 @@ public class PagarCuentaMesaUseCase {
 
         return new CuentaPagada(cuentaId, cmd.mesaId(), total, cmd.metodoPago(), vuelto,
                 pagos.stream().map(p -> new CuentaPagada.Pago(p.getPagoId(), p.getPedidoId(), p.getMonto())).toList());
+    }
+
+    /** El nombre lo pone Postgres al {@code UNIQUE} sin nombre de {@code pago.pedido_id} (V1). */
+    private static boolean violaPagoUnicoPorPedido(DataIntegrityViolationException e) {
+        for (Throwable c = e; c != null; c = c.getCause()) {
+            if (c instanceof ConstraintViolationException cve) {
+                return PAGO_UNICO_POR_PEDIDO.equalsIgnoreCase(cve.getConstraintName());
+            }
+        }
+        return false;
     }
 }
