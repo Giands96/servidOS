@@ -76,7 +76,7 @@ class ActualizarMesaUseCaseTest {
     @Test
     void numeroDeOtraMesaDelRestauranteDa400YNoGuarda() {
         dadaMesa(entidad(EstadoMesa.LIBRE, null));
-        when(mesaRepository.existsByRestauranteIdAndNumeroAndMesaIdNot(10L, 8, 1L)).thenReturn(true);
+        when(mesaRepository.existsByRestauranteIdAndNumeroAndActivaTrueAndMesaIdNot(10L, 8, 1L)).thenReturn(true);
 
         var ex = assertThrows(BusinessException.class,
                 () -> useCase.ejecutar(new ActualizarMesaCommand(1L, 8, 6), 10L));
@@ -102,6 +102,19 @@ class ActualizarMesaUseCaseTest {
         assertThrows(BusinessException.class,
                 () -> useCase.ejecutar(new ActualizarMesaCommand(1L, 5, 4), 10L));
 
+        verify(mesaRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void mesaInactivaDa400YNoGuarda() {
+        var e = entidad(EstadoMesa.LIBRE, null);
+        e.setActiva(false);
+        dadaMesa(e);
+
+        var ex = assertThrows(BusinessException.class,
+                () -> useCase.ejecutar(new ActualizarMesaCommand(1L, 8, 10), 10L));
+
+        assertEquals("La mesa está inactiva", ex.getMessage());
         verify(mesaRepository, never()).saveAndFlush(any());
     }
 

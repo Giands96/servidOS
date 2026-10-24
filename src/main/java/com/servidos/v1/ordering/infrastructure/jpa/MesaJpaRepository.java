@@ -14,13 +14,16 @@ import java.util.Optional;
 @Repository
 public interface MesaJpaRepository extends JpaRepository<MesaJpaEntity, Long> {
 
-    List<MesaJpaEntity> findByRestauranteIdOrderByNumeroAsc(Long restauranteId);
+    List<MesaJpaEntity> findByRestauranteIdAndActivaTrueOrderByNumeroAsc(Long restauranteId);
 
-    List<MesaJpaEntity> findByRestauranteIdAndEstadoOrderByNumeroAsc(Long restauranteId, EstadoMesa estado);
+    List<MesaJpaEntity> findByRestauranteIdAndActivaTrueAndEstadoOrderByNumeroAsc(Long restauranteId, EstadoMesa estado);
 
-    boolean existsByRestauranteIdAndNumero(Long restauranteId, Integer numero);
+    List<MesaJpaEntity> findByRestauranteIdAndActivaFalseOrderByNumeroAsc(Long restauranteId);
 
-    boolean existsByRestauranteIdAndNumeroAndMesaIdNot(Long restauranteId, Integer numero, Long mesaId);
+    // El número solo es único entre mesas activas (índice parcial de V15).
+    boolean existsByRestauranteIdAndNumeroAndActivaTrue(Long restauranteId, Integer numero);
+
+    boolean existsByRestauranteIdAndNumeroAndActivaTrueAndMesaIdNot(Long restauranteId, Integer numero, Long mesaId);
 
     boolean existsByMesaIdAndRestauranteId(Long mesaId, Long restauranteId);
 

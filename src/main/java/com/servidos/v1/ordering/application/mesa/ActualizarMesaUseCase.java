@@ -26,7 +26,7 @@ public class ActualizarMesaUseCase {
                 .orElseThrow(() -> new BusinessException("Mesa no encontrada"));
         Mesa mesa = mesaMapper.toDomain(entity);
         mesa.actualizar(cmd.numero(), cmd.capacidad());
-        if (mesaRepository.existsByRestauranteIdAndNumeroAndMesaIdNot(restauranteId, mesa.getNumero(), mesa.getMesa_id())) {
+        if (mesaRepository.existsByRestauranteIdAndNumeroAndActivaTrueAndMesaIdNot(restauranteId, mesa.getNumero(), mesa.getMesa_id())) {
             throw CrearMesaUseCase.duplicada(mesa.getNumero());
         }
         mesaMapper.updateEntity(mesa, entity);

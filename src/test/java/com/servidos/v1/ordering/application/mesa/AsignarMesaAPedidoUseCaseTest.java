@@ -71,6 +71,19 @@ class AsignarMesaAPedidoUseCaseTest {
     }
 
     @Test
+    void pedidoDeMesaConMesaInactivaDa400YNoGuarda() {
+        var e = entidad(EstadoMesa.LIBRE, null);
+        e.setActiva(false);
+        when(mesaRepository.bloquearPorIdYRestaurante(3L, 10L)).thenReturn(Optional.of(e));
+
+        var ex = assertThrows(BusinessException.class, () -> useCase.ejecutar(3L, TipoPedido.MESA, 10L));
+
+        assertEquals("La mesa está inactiva", ex.getMessage());
+        assertEquals(EstadoMesa.LIBRE, e.getEstado());
+        verify(mesaRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
     void pedidoDeMesaConMesaInexistenteODeOtroRestauranteDa400() {
         when(mesaRepository.bloquearPorIdYRestaurante(3L, 99L)).thenReturn(Optional.empty());
 
