@@ -3,8 +3,15 @@ package com.servidos.v1.payment.api;
 import com.servidos.v1.ordering.domain.EstadoMesa;
 import com.servidos.v1.ordering.domain.EstadoPedido;
 import com.servidos.v1.ordering.domain.TipoPedido;
+import com.servidos.v1.payment.api.dto.PagarCuentaMesaRequest;
 import com.servidos.v1.payment.application.cuenta.ConsultarCuentaMesaUseCase;
 import com.servidos.v1.payment.application.cuenta.CuentaMesa;
+import com.servidos.v1.payment.application.cuenta.CuentaPagada;
+import com.servidos.v1.payment.application.cuenta.PagarCuentaMesaCommand;
+import com.servidos.v1.payment.application.cuenta.PagarCuentaMesaUseCase;
+import com.servidos.v1.payment.domain.MetodoPago;
+import com.servidos.v1.shared.security.CurrentUser;
+import jakarta.validation.Validation;
 import com.servidos.v1.shared.security.TenantContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +28,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,18 +38,21 @@ class CuentaMesaControllerTest {
     static final String ROLES_DE_CAJA = "hasAnyRole('ADMINISTRADOR','RECEPCION','CAJERO')";
 
     @Mock ConsultarCuentaMesaUseCase consultarCuentaMesaUseCase;
+    @Mock PagarCuentaMesaUseCase pagarCuentaMesaUseCase;
 
     CuentaMesaController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new CuentaMesaController(consultarCuentaMesaUseCase);
+        controller = new CuentaMesaController(consultarCuentaMesaUseCase, pagarCuentaMesaUseCase);
         TenantContext.setRestauranteId(100L);
+        CurrentUser.setCurrentUser(9L);
     }
 
     @AfterEach
     void limpiar() {
         TenantContext.clear();
+        CurrentUser.clear();
     }
 
     private static String permisos(String metodo, Class<?>... tipos) throws NoSuchMethodException {
@@ -80,5 +91,49 @@ class CuentaMesaControllerTest {
     @Test
     void consultarSoloLoHacenLosRolesDeCaja() throws Exception {
         assertEquals(ROLES_DE_CAJA, permisos("consultar", Long.class));
+    }
+
+    @Test
+    void pagarTomaTenantYCajeroDelContextoYDa201() {
+        var cuenta = new CuentaPagada(55L, 7L, new BigDecimal("75.50"), MetodoPago.EFECTIVO, new BigDecimal("24.50"),
+                List.of(new CuentaPagada.Pago(101L, 10L, new BigDecimal("50.00")),
+                        new CuentaPagada.Pago(102L, 11L, new BigDecimal("25.50"))));
+        when(pagarCuentaMesaUseCase.ejecutar(
+                new PagarCuentaMesaCommand(7L, MetodoPago.EFECTIVO, new BigDecimal("100.00"), "ref", List.of(10L, 11L)),
+                100L, 9L)).thenReturn(cuenta);
+
+        var resp = controller.pagar(7L, new PagarCuentaMesaRequest(
+                MetodoPago.EFECTIVO, new BigDecimal("100.00"), "ref", List.of(10L, 11L)));
+
+        assertEquals(HttpStatus.CREATED, resp.getStatusCode());
+        var body = resp.getBody();
+        assertEquals(55L, body.cuentaId());
+        assertEquals(7L, body.mesaId());
+        assertEquals(0, new BigDecimal("75.50").compareTo(body.total()));
+        assertEquals(MetodoPago.EFECTIVO, body.metodoPago());
+        assertEquals(0, new BigDecimal("24.50").compareTo(body.vuelto()));
+        assertEquals(2, body.pagos().size());
+        assertEquals(101L, body.pagos().get(0).pagoId());
+        assertEquals(10L, body.pagos().get(0).pedidoId());
+        assertEquals(0, new BigDecimal("50.00").compareTo(body.pagos().get(0).monto()));
+    }
+
+    @Test
+    void pagarSoloLoHacenLosRolesDeCaja() throws Exception {
+        assertEquals(ROLES_DE_CAJA, permisos("pagar", Long.class, PagarCuentaMesaRequest.class));
+    }
+
+    @Test
+    void elRequestDePagoValidaMetodoPedidosYReferencia() {
+        var validator = Validation.buildDefaultValidatorFactory().getValidator();
+
+        assertTrue(validator.validate(new PagarCuentaMesaRequest(MetodoPago.YAPE, null, null, List.of(1L))).isEmpty());
+        assertEquals(1, validator.validate(new PagarCuentaMesaRequest(null, null, null, List.of(1L))).size());
+        assertEquals(1, validator.validate(new PagarCuentaMesaRequest(MetodoPago.YAPE, null, null, List.of())).size());
+        assertEquals(1, validator.validate(new PagarCuentaMesaRequest(MetodoPago.YAPE, null, null, null)).size());
+        assertEquals(1, validator.validate(new PagarCuentaMesaRequest(
+                MetodoPago.YAPE, null, "x".repeat(101), List.of(1L))).size());
+        assertEquals(1, validator.validate(new PagarCuentaMesaRequest(
+                MetodoPago.EFECTIVO, new BigDecimal("-1"), null, List.of(1L))).size());
     }
 }

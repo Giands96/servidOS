@@ -57,8 +57,8 @@ Cobrar en una sola operación atómica todo lo pendiente de una mesa: sus rondas
 | ID | Tarea | Ruta | Estado | Commit |
 |----|-------|------|--------|--------|
 | T1 | Regla de liberación refinada en `contarAbiertosEnMesa` + tests de integración | delegada (writer único T1-T4: 2+ archivos no triviales) | [x] | c8b203e |
-| T2 | `GET /mesas/{id}/cuenta`: query de pendientes, ítems, caso de uso, controlador, OpenAPI + tests | delegada | [x] | ver git log (`feat(pagos): consulta de la cuenta de mesa`) |
-| T3 | `POST /mesas/{id}/cuenta/pagar`: V16, entidad/mapper, caso de uso, OpenAPI + tests | delegada | [ ] | |
+| T2 | `GET /mesas/{id}/cuenta`: query de pendientes, ítems, caso de uso, controlador, OpenAPI + tests | delegada | [x] | be25b54 |
+| T3 | `POST /mesas/{id}/cuenta/pagar`: V16, entidad/mapper, caso de uso, OpenAPI + tests | delegada | [x] | ver git log (`feat(pagos): cobro conjunto de la cuenta de mesa`) |
 | T4 | `CAMBIOS_FRONTEND.md` + `docs/progress/2026-10-24-cuenta-mesa.md` | delegada | [ ] | |
 
 ## Criterios de aceptación
@@ -93,5 +93,13 @@ Cobrar en una sola operación atómica todo lo pendiente de una mesa: sus rondas
   ReembolsoCancelaPedidoIntegracionTest,ListarPedidosIntegracionTest'` -> exit 0 (use case 4, controller 2, integración 4,
   seguridad HTTP 6 tests).
 
+- T3 RED: compilación fallida (sin `PagarCuentaMesaUseCase`, `CuentaMesaJpaRepository`, `Pago.cuentaId`); luego
+  `SubscriptionFilterTest` -> 1 fallo (`POST /mesas/{id}/cuenta/pagar` respondía 402 con el restaurante bloqueado).
+- T3 GREEN: `./mvnw -q test -Dtest=SubscriptionFilterTest,PagarCuentaMesaUseCaseTest,CuentaMesaControllerTest,
+  CuentaMesaIntegracionTest,CuentaMesaSeguridadIntegracionTest` -> exit 0 (16 + 10 + 5 + 11 + 15 tests).
+- Suite completa tras T3: `./mvnw -q test` -> exit 0; 584 tests, 0 fallos, 0 errores, 0 omitidos.
+- Desviación: `SubscriptionFilter` deja pasar `POST /api/v1/mesas/{id}/cuenta/pagar` con el restaurante bloqueado,
+  igual que `POST /api/v1/pagos` (cobrar pedidos en curso). Sin eso la cuenta daría 402 donde el pago individual no.
+
 ## Siguiente paso
-- T3.
+- T4.

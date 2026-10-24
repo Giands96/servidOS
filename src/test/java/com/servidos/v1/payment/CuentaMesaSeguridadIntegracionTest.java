@@ -27,6 +27,7 @@ class CuentaMesaSeguridadIntegracionTest {
 
     /** Tenant sin datos: la mesa no existe. */
     static final long RESTAURANTE = 999_999_999L;
+    static final String CUERPO_VALIDO = "{\"metodoPago\":\"YAPE\",\"pedidoIds\":[1]}";
 
     @LocalServerPort int port;
     @Autowired JwtService jwtService;
@@ -43,6 +44,39 @@ class CuentaMesaSeguridadIntegracionTest {
     @ValueSource(strings = {"ADMINISTRADOR", "RECEPCION", "CAJERO"})
     void losRolesDeCajaPasanLaSeguridadAlConsultar(String rol) throws Exception {
         assertEquals(400, get("/api/v1/mesas/1/cuenta", jwtService.generate(1L, RESTAURANTE, rol)).statusCode());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"MESERO", "COCINERO", "REPARTIDOR"})
+    void losRolesSinPermisoDeCajaReciben403AlPagar(String rol) throws Exception {
+        assertEquals(403, post("/api/v1/mesas/1/cuenta/pagar", CUERPO_VALIDO,
+                jwtService.generate(1L, RESTAURANTE, rol)).statusCode());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ADMINISTRADOR", "RECEPCION", "CAJERO"})
+    void losRolesDeCajaPasanLaSeguridadAlPagar(String rol) throws Exception {
+        assertEquals(400, post("/api/v1/mesas/1/cuenta/pagar", CUERPO_VALIDO,
+                jwtService.generate(1L, RESTAURANTE, rol)).statusCode());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"metodoPago\":\"YAPE\",\"pedidoIds\":[]}",
+            "{\"pedidoIds\":[1]}",
+            "{\"metodoPago\":\"YAPE\"}"})
+    void unCuerpoInvalidoSeRechazaConValidacion(String cuerpo) throws Exception {
+        assertEquals(422, post("/api/v1/mesas/1/cuenta/pagar", cuerpo,
+                jwtService.generate(1L, RESTAURANTE, "CAJERO")).statusCode());
+    }
+
+    private HttpResponse<String> post(String path, String json, String bearer) throws IOException, InterruptedException {
+        var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+                .header("Authorization", "Bearer " + bearer)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(json))
+                .build();
+        return http.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> get(String path, String bearer) throws IOException, InterruptedException {
