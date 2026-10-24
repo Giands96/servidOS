@@ -45,3 +45,7 @@ BD.sql
 .env.local
 .env.*
 !.env.example
+/.claude
+/.agents
+/agent
+/claude
