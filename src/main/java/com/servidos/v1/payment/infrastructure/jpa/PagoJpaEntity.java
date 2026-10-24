@@ -59,6 +59,10 @@ public class PagoJpaEntity {
     @Column(name = "reembolso_usuario_id")
     private Long reembolsoUsuarioId;
 
+    /** Cuenta de mesa que cobró este pago junto con otros; null = pago individual. */
+    @Column(name = "cuenta_id")
+    private Long cuentaId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

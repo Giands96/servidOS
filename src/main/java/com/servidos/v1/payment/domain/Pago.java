@@ -27,6 +27,8 @@ public class Pago {
     private String referenciaExterna;
     private String reembolsoMotivo;
     private Long reembolsoUsuarioId;
+    /** Cuenta de mesa que cobró este pago junto con otros; null = pago individual. */
+    private Long cuentaId;
     private LocalDateTime created_at;
     private LocalDateTime updated_at;
 
