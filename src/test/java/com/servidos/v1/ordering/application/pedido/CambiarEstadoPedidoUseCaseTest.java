@@ -269,4 +269,14 @@ class CambiarEstadoPedidoUseCaseTest {
 
         assertEquals(nuevo, useCase.ejecutar(1L, 10L, nuevo, rol).getEstado());
     }
+
+    @ParameterizedTest
+    @CsvSource(value = {"NULL", "''", "COCINERO", "CAJERO", "ROLE_MESERO", "SUPERADMIN"}, nullValues = "NULL")
+    void unRolNuloODesconocidoNoSalteaLaRegla(String rol) {
+        var ex = assertThrows(ForbiddenException.class,
+                () -> useCase.ejecutar(1L, 10L, EstadoPedido.CANCELADO, rol));
+
+        assertEquals("Rol sin permiso para cambiar el estado del pedido", ex.getMessage());
+        verifyNoInteractions(pedidoRepository, eventPublisher);
+    }
 }

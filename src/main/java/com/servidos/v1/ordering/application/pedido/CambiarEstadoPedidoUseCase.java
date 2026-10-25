@@ -17,10 +17,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Set;
+
 @Service
 @RequiredArgsConstructor
 public class CambiarEstadoPedidoUseCase {
     private static final String MESERO = "MESERO";
+    /** Roles con la matriz completa. Cualquier otro rol (o ninguno) se rechaza: la regla no falla abierta. */
+    private static final Set<String> ROLES_MATRIZ_COMPLETA = Set.of("ADMINISTRADOR", "RECEPCION");
 
     private final PedidoJpaRepository pedidoRepository;
     private final PedidoMapper pedidoMapper;
@@ -30,15 +34,24 @@ public class CambiarEstadoPedidoUseCase {
     /** Flujos internos (confirmar, cancelar al reembolsar): sin restricción de rol, solo la matriz. */
     @Transactional
     public Pedido ejecutar(Long pedidoId, Long restauranteId, EstadoPedido nuevoEstado) {
-        return ejecutar(pedidoId, restauranteId, nuevoEstado, null);
+        return cambiar(pedidoId, restauranteId, nuevoEstado, false);
     }
 
     /**
      * Cambio pedido por un usuario. El rol sale del JWT ({@code CurrentUser}), nunca del JSON. El MESERO
-     * solo puede pasar un pedido MESA de LISTO a ENTREGADO; los demás roles usan la matriz completa.
+     * solo puede pasar un pedido MESA de LISTO a ENTREGADO; ADMINISTRADOR y RECEPCION usan la matriz
+     * completa; un rol nulo o desconocido recibe 403.
      */
     @Transactional
     public Pedido ejecutar(Long pedidoId, Long restauranteId, EstadoPedido nuevoEstado, String rol) {
+        boolean esMesero = MESERO.equalsIgnoreCase(rol);
+        if (!esMesero && (rol == null || !ROLES_MATRIZ_COMPLETA.contains(rol.toUpperCase()))) {
+            throw new ForbiddenException("Rol sin permiso para cambiar el estado del pedido");
+        }
+        return cambiar(pedidoId, restauranteId, nuevoEstado, esMesero);
+    }
+
+    private Pedido cambiar(Long pedidoId, Long restauranteId, EstadoPedido nuevoEstado, boolean esMesero) {
         if (pedidoId == null) {
             throw new BusinessException("Pedido no identificado");
         }
@@ -50,7 +63,7 @@ public class CambiarEstadoPedidoUseCase {
         }
         PedidoJpaEntity pedido = pedidoRepository.findByPedidoIdAndRestauranteId(pedidoId, restauranteId)
                 .orElseThrow(() -> new BusinessException("Pedido no encontrado"));
-        if (MESERO.equalsIgnoreCase(rol)) {
+        if (esMesero) {
             exigirEntregaDeMesa(pedido, nuevoEstado);
         }
         validarTransicion(pedido, nuevoEstado);

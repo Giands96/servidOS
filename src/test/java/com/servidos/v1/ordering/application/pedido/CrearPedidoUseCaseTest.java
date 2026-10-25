@@ -188,4 +188,14 @@ class CrearPedidoUseCaseTest {
 
         assertEquals(TipoPedido.DELIVERY, pedido.getTipoPedido());
     }
+
+    @ParameterizedTest
+    @CsvSource(value = {"NULL", "''", "COCINERO", "CAJERO", "ROLE_MESERO", "SUPERADMIN"}, nullValues = "NULL")
+    void unRolNuloODesconocidoNoTomaPedidos(String rol) {
+        var ex = assertThrows(ForbiddenException.class,
+                () -> useCase.ejecutar(comando(TipoPedido.DELIVERY, null), 10L, 5L, rol));
+
+        assertEquals("Rol sin permiso para tomar pedidos", ex.getMessage());
+        org.mockito.Mockito.verifyNoInteractions(asignarMesa, pedidoRepository, eventPublisher);
+    }
 }

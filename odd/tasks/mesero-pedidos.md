@@ -55,6 +55,7 @@ Entrega: `single-pr` apilado sobre `feat/cuenta-mesa`. Runner: `./mvnw -q test -
 |----|-------|----|------|--------|--------|
 | T1 | Permisos + restricción de `/estado` y de tipo en `POST /pedidos`, Swagger, tests unitarios y HTTP | S1-S5 | inline (una sola unidad de seguridad, ~300 líneas) | [x] | 24c500f |
 | T2 | `CAMBIOS_FRONTEND.md` + progreso con fragmento de `FRONTEND_CONTEXT.md` | S6 | inline | [x] | a577c01 + commit de docs(odd) |
+| T3 | Endurecer: rol nulo o desconocido no saltea la regla (lista de roles permitidos) | S2, S3 | inline (2 archivos) | [x] | ver git log (`fix(pedidos): ...`) |
 
 ## Log
 - L1 (2026-10-24, pedido original del usuario): feature "el rol MESERO toma, confirma y entrega pedidos de mesa" (texto
@@ -81,3 +82,11 @@ Entrega: `single-pr` apilado sobre `feat/cuenta-mesa`. Runner: `./mvnw -q test -
 - L10: advisories de la review (no bloqueantes, trabajo aparte): R1-001/R2-001/R3: la regla del MESERO falla abierta si el
   rol llega `null` (la sobrecarga sin rol es pública); sugerencia: lista de roles permitidos o sobrecarga interna no
   pública. R2-002: "salón" nombra dos conjuntos de roles distintos en `PedidoControllerTest` y `CuentaMesaControllerTest`.
+- L11 (2026-10-24, pedido del usuario, textual): "Sí, endurecé la regla del MESERO para que un rol null o desconocido no la
+  saltee, con su test." Resuelve R1-001/R2-001/R3.
+- L12: T3: las sobrecargas con rol usan una lista de roles permitidos (ADMINISTRADOR y RECEPCION: todo; MESERO: su regla;
+  nulo, vacío, otro rol o `ROLE_MESERO` -> 403 "Rol sin permiso para cambiar el estado del pedido" / "Rol sin permiso para
+  tomar pedidos", antes de tocar la base). La firma sin rol ya no pasa `null`: llama a un método privado. RED:
+  `-Dtest='CambiarEstadoPedidoUseCaseTest,CrearPedidoUseCaseTest'` -> 6 + 6 fallos. GREEN: mismo comando +
+  `ConfirmarPedidoUseCaseTest,CancelarPedidoAlReembolsarListenerTest,PedidoControllerTest` -> exit 0 (41 + 21 + 3 + 7 + 6).
+  Suite completa: exit 0, 650 tests, 0 fallos.
