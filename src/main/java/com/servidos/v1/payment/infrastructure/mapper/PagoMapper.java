@@ -22,6 +22,7 @@ public class PagoMapper {
                 .referenciaExterna(e.getReferenciaExterna())
                 .reembolsoMotivo(e.getReembolsoMotivo())
                 .reembolsoUsuarioId(e.getReembolsoUsuarioId())
+                .cuentaId(e.getCuentaId())
                 .created_at(e.getCreatedAt())
                 .updated_at(e.getUpdatedAt())
                 .build();
@@ -42,6 +43,7 @@ public class PagoMapper {
         e.setReferenciaExterna(d.getReferenciaExterna());
         e.setReembolsoMotivo(d.getReembolsoMotivo());
         e.setReembolsoUsuarioId(d.getReembolsoUsuarioId());
+        e.setCuentaId(d.getCuentaId());
         e.setCreatedAt(d.getCreated_at());
         e.setUpdatedAt(d.getUpdated_at());
         return e;

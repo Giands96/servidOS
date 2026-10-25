@@ -41,7 +41,7 @@ import java.util.UUID;
  * Bloqueado = solo lectura. Pasan siempre: lecturas, auth, rutas fuera de {@code /api/}
  * y sesiones de plataforma (sin tenant). Además, para no dejar pedidos colgados, con el
  * restaurante bloqueado se pueden <b>cerrar los pedidos en curso</b>: avanzar o cancelar
- * su estado, marcarlos listos, cobrarlos y reembolsarlos. Crear pedidos nuevos y
+ * su estado, marcarlos listos, cobrarlos (también la cuenta de una mesa) y reembolsarlos. Crear pedidos nuevos y
  * cualquier otra escritura siguen bloqueados.
  * <p>
  * Renovar no es self-service: lo hace la plataforma ({@code POST /restaurantes/{id}/suscripcion/renovar}).
@@ -58,7 +58,9 @@ public class SubscriptionFilter extends OncePerRequestFilter {
             Pattern.compile("POST /api/v1/pedidos/\\d+/confirmar"),
             Pattern.compile("POST /api/v1/cocina/pedidos/\\d+/listo"),
             Pattern.compile("POST /api/v1/pagos"),
-            Pattern.compile("POST /api/v1/pagos/\\d+/reembolso"));
+            Pattern.compile("POST /api/v1/pagos/\\d+/reembolso"),
+            // Cobro conjunto de la cuenta de una mesa: cobra los mismos pedidos en curso que /pagos.
+            Pattern.compile("POST /api/v1/mesas/\\d+/cuenta/pagar"));
 
     private static final String CONTACTO = "contactá a la plataforma para regularizar tu suscripción";
 

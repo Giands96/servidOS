@@ -210,7 +210,8 @@ class SubscriptionFilterTest {
                 {"POST", "/api/v1/pedidos/12/confirmar"},
                 {"POST", "/api/v1/cocina/pedidos/12/listo"},
                 {"POST", "/api/v1/pagos"},
-                {"POST", "/api/v1/pagos/3/reembolso"}};
+                {"POST", "/api/v1/pagos/3/reembolso"},
+                {"POST", "/api/v1/mesas/7/cuenta/pagar"}};
         for (var op : operaciones) {
             restauranteInactivo();
             var res = response();
@@ -227,7 +228,9 @@ class SubscriptionFilterTest {
                 {"POST", "/api/v1/pedidos"},
                 {"POST", "/api/v1/productos"},
                 {"PATCH", "/api/v1/productos/5/estado"},
-                {"POST", "/api/v1/pagos/3/reembolso/extra"}};
+                {"POST", "/api/v1/pagos/3/reembolso/extra"},
+                {"POST", "/api/v1/mesas/7/cuenta/pagar/extra"},
+                {"POST", "/api/v1/mesas/7/liberar"}};
         for (var op : operaciones) {
             restauranteInactivo();
             var res = response();

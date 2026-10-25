@@ -1,6 +1,6 @@
 # Cambios del backend para el frontend
 
-Fecha: 2026-10-08, actualizado el 2026-10-11. Incluye lo mergeado en [Giands96/servidOS#12](https://github.com/Giands96/servidOS/pull/12) y lo nuevo de la rama `claude/optimistic-ramanujan-hfasob`, que todavía no está en `main`.
+Fecha: 2026-10-08, actualizado el 2026-10-11 y el 2026-10-24 (cuenta de mesa, §18 y §19). Incluye lo mergeado en [Giands96/servidOS#12](https://github.com/Giands96/servidOS/pull/12) y lo nuevo de la rama `claude/optimistic-ramanujan-hfasob`, que todavía no está en `main`.
 
 Base de la API: `/api/v1`. Los formatos de error no cambian: siguen siendo `ErrorResponse`, con `status`, `message` y `path`.
 
@@ -25,6 +25,8 @@ Base de la API: `/api/v1`. Los formatos de error no cambian: siguen siendo `Erro
 | 15 | Fechas en hora de Lima | ⚠️ Aclaración | Mostrar `createdAt` sin convertir |
 | 16 | Roles de plataforma: SUPERADMIN, ADMIN y MODERADOR | ⚠️ Cambian los permisos | Panel de plataforma según el rol |
 | 17 | Período mensual con `fechaFin` inclusiva | ⚠️ Cambia la regla | Textos de vencimiento |
+| 18 | Nueva cuenta de mesa: `GET /mesas/{id}/cuenta` y `POST /mesas/{id}/cuenta/pagar` | ✅ Nuevo | Caja: cobrar una mesa de una vez |
+| 19 | Un RECOJO/DELIVERY vinculado sin cobrar retiene la mesa | ⚠️ Cambia la regla | Liberar mesa y mensajes de error |
 
 ---
 
@@ -111,6 +113,7 @@ Aunque el restaurante esté bloqueado (402), estas acciones siguen permitidas pa
 | POST | `/cocina/pedidos/{id}/listo` |
 | POST | `/pagos` |
 | POST | `/pagos/{id}/reembolso` |
+| POST | `/mesas/{id}/cuenta/pagar` (§18) |
 
 Crear pedidos, tocar el catálogo, gestionar usuarios, etc. siguen dando 402.
 
@@ -388,6 +391,144 @@ Las suscripciones que ya existen conservan sus fechas.
 
 **Qué tocar:** el texto de vencimiento tiene que decir "vence el {fechaFin}" o "activo hasta el {fechaFin} inclusive". El aviso de §3 ("Tu suscripción termina el {fechaFin}") sigue siendo correcto. Si el front calcula días restantes, `fechaFin − hoy + 1` da los días de acceso que quedan, contando hoy.
 
+## 18. Cuenta de mesa: cobrar todo lo de una mesa de una vez ✅
+
+Antes, cobrar una mesa con 3 rondas y un pedido para llevar eran 4 llamadas a `POST /pagos`, y agruparlas desde el front no era atómico. Ahora hay dos endpoints nuevos; `POST /pagos` **no cambia**.
+
+Roles de los dos: **ADMINISTRADOR, RECEPCION y CAJERO** (cualquier otro rol recibe 403). El restaurante y el cajero salen del token: nunca se mandan en el body.
+
+### `GET /mesas/{mesaId}/cuenta`
+
+Devuelve lo que la mesa debe hoy: sus pedidos **pendientes de cobro**, de cualquier tipo (rondas `MESA` y también los `RECOJO`/`DELIVERY` que tengan ese `mesaId`). No incluye los cancelados ni los que ya tienen un pago PAGADO o REEMBOLSADO.
+
+```http
+GET /api/v1/mesas/3/cuenta
+```
+
+```json
+{
+  "mesaId": 3,
+  "numero": 5,
+  "estado": "OCUPADA",
+  "comensales": 4,
+  "capacidad": 6,
+  "pedidos": [
+    {
+      "pedidoId": 20,
+      "tipoPedido": "MESA",
+      "estado": "ENTREGADO",
+      "createdAt": "2026-10-24T12:30:00",
+      "items": [
+        { "nombre": "Lomo saltado", "cantidad": 2, "subtotal": 50.00 }
+      ],
+      "observacion": "sin ají",
+      "total": 50.00
+    },
+    {
+      "pedidoId": 22,
+      "tipoPedido": "RECOJO",
+      "estado": "PENDIENTE",
+      "createdAt": "2026-10-24T12:55:00",
+      "items": [
+        { "nombre": "Ceviche", "cantidad": 1, "subtotal": 25.50 }
+      ],
+      "observacion": null,
+      "total": 25.50
+    }
+  ],
+  "total": 75.50
+}
+```
+
+- Los pedidos vienen del más viejo al más nuevo. `comensales` es `null` si la mesa está LIBRE.
+- `total` lo calcula el servidor (suma de los totales de los pedidos); no lo recalcules en el front para cobrar.
+- Sin nada pendiente responde 200 con `"pedidos": []` y `"total": 0`.
+- Errores 400: "Mesa no encontrada" (mesa inexistente o de otro restaurante, igual que el resto de los endpoints de mesa).
+
+### `POST /mesas/{mesaId}/cuenta/pagar`
+
+Cobra **toda** la cuenta en una sola operación atómica: o se crean todos los pagos o ninguno.
+
+```http
+POST /api/v1/mesas/3/cuenta/pagar
+Content-Type: application/json
+
+{
+  "metodoPago": "EFECTIVO",
+  "montoEntregado": 100.00,
+  "referenciaExterna": null,
+  "pedidoIds": [20, 22]
+}
+```
+
+| Campo | Obligatorio | Detalle |
+|---|---|---|
+| `metodoPago` | Sí | El mismo enum que `POST /pagos` |
+| `montoEntregado` | Solo en `EFECTIVO` | Positivo; tiene que cubrir el `total`. En otros métodos se ignora |
+| `referenciaExterna` | No | Máximo 100 caracteres. Se guarda en la cuenta y en cada pago |
+| `pedidoIds` | Sí | No vacío. Los pedidos **que el cajero vio** en la cuenta |
+
+Responde **201**:
+
+```json
+{
+  "cuentaId": 15,
+  "mesaId": 3,
+  "total": 75.50,
+  "metodoPago": "EFECTIVO",
+  "vuelto": 24.50,
+  "pagos": [
+    { "pagoId": 101, "pedidoId": 20, "monto": 50.00 },
+    { "pagoId": 102, "pedidoId": 22, "monto": 25.50 }
+  ]
+}
+```
+
+- Se crea **un pago por pedido** (PAGADO), todos con el mismo `cuentaId`. El `monto` de cada uno es el total de su pedido.
+- El **vuelto** se calcula una sola vez sobre el total y vive en la cuenta (`vuelto`, solo efectivo; `null` en otros métodos). Los pagos individuales de la cuenta no llevan vuelto.
+- Cada pago puede reembolsarse por separado con `POST /pagos/{id}/reembolso`, como siempre. No hay reembolso de la cuenta completa.
+- Al cobrar, la mesa se libera sola cuando corresponde (ver §19).
+
+**Regla de concurrencia: `pedidoIds` tiene que coincidir exactamente con lo pendiente.** El servidor bloquea la mesa, vuelve a calcular la cuenta y compara con `pedidoIds` (como conjunto; los repetidos no importan). Si no coinciden (entró una ronda nueva, se cobró o canceló un pedido por otro lado), no cobra nada y responde 400 **"La cuenta cambió, vuelva a cargarla"**.
+
+Qué tocar: ante ese mensaje, volver a pedir `GET /mesas/{id}/cuenta`, mostrarle al cajero lo nuevo y dejar que confirme otra vez. No reintentar el POST con los mismos ids.
+
+Errores:
+
+| Status | Mensaje | Cuándo |
+|---|---|---|
+| 400 | "Mesa no encontrada" | Mesa inexistente o de otro restaurante |
+| 400 | "La mesa no tiene pedidos pendientes de cobro" | La cuenta está vacía (por ejemplo, ya se cobró) |
+| 400 | "La cuenta cambió, vuelva a cargarla" | `pedidoIds` no coincide con lo pendiente (también si un pago individual se coló justo antes) |
+| 400 | "Monto insuficiente" | `EFECTIVO` sin `montoEntregado` o menor al total |
+| 401 | — | Sin sesión |
+| 403 | — | Rol sin permiso |
+| 422 | Detalle de validación | Falta `metodoPago`, `pedidoIds` vacío o ausente, `montoEntregado` no positivo, `referenciaExterna` de más de 100 caracteres |
+
+Como el resto de los cobros (§5), este endpoint **funciona aunque el restaurante esté bloqueado (402)**: sirve para cerrar pedidos en curso.
+
+**Qué tocar:**
+- Caja: en la vista de una mesa, mostrar `GET /mesas/{id}/cuenta` y un único botón "Cobrar cuenta" que llame a `POST /mesas/{id}/cuenta/pagar` con los `pedidoId` mostrados. Para cobrar un pedido suelto se sigue usando `POST /pagos`.
+- Permisos: nuevo permiso `cuenta.cobrar` (o reutilizar `pagos.registrar`) para ADMINISTRADOR, RECEPCION y CAJERO. El MESERO no ve la cuenta.
+
+## 19. Un RECOJO/DELIVERY vinculado sin cobrar retiene la mesa ⚠️
+
+Un pedido `RECOJO` o `DELIVERY` puede llevar `mesaId` (se cobra junto con la cuenta de esa mesa). Antes, la mesa se liberaba aunque ese pedido siguiera sin cobrar. Ahora cuenta como pendiente de la mesa:
+
+| Pedido de la mesa | ¿Retiene la mesa? |
+|---|---|
+| `MESA` | Igual que antes: abierto hasta que esté ENTREGADO **y** cobrado (PAGADO o REEMBOLSADO); un CANCELADO no cuenta |
+| `RECOJO` / `DELIVERY` vinculado, sin cobrar y no cancelado | **Sí**, esté entregado o no |
+| `RECOJO` / `DELIVERY` vinculado, cobrado (PAGADO o REEMBOLSADO) | No, aunque todavía no esté entregado: un delivery pagado y en camino no deja la mesa ocupada |
+| `RECOJO` / `DELIVERY` vinculado, CANCELADO | No |
+
+Efectos visibles:
+- La **liberación automática** (al cobrar, entregar o cancelar el último pedido) espera también a que se cobre o cancele el pedido vinculado. Al cobrarlo (por `POST /pagos` o por la cuenta) la mesa se libera sola.
+- `POST /mesas/{id}/liberar` responde 400 **"La mesa tiene pedidos abiertos"** si queda un RECOJO/DELIVERY vinculado sin cobrar.
+- `POST /mesas/{id}/desactivar` responde 400 con el mismo mensaje en ese caso.
+
+**Qué tocar:** el mensaje "La mesa tiene pedidos abiertos" ahora puede deberse a un pedido para llevar sin cobrar; llevar al cajero a la cuenta de la mesa (§18) para cobrarlo o cancelarlo.
+
 ---
 
 ## Checklist para el front
@@ -406,3 +547,6 @@ Las suscripciones que ya existen conservan sus fechas.
 - [ ] Quitar el cambio de plan del tenant; llevarlo al panel de plataforma (§14).
 - [ ] Mostrar las fechas sin convertir zona (§15).
 - [ ] "Listos para salir": usar `listoAt` del backend en lugar del local (§10).
+- [ ] Cuenta de mesa: `GET /mesas/{id}/cuenta` y botón "Cobrar cuenta" con `POST /mesas/{id}/cuenta/pagar` (§18).
+- [ ] Ante "La cuenta cambió, vuelva a cargarla", recargar la cuenta y pedir confirmación otra vez (§18).
+- [ ] Entender que un RECOJO/DELIVERY vinculado sin cobrar impide liberar o dar de baja la mesa (§19).
