@@ -88,8 +88,11 @@ class RenovarSuscripcionUseCaseTest {
 
         var renovada = useCase.ejecutar(new RenovarSuscripcionCommand(7L, null)).suscripcion();
 
-        assertEquals(fin.plusDays(1), renovada.getFecha_inicio());
-        assertEquals(fin.plusMonths(1), renovada.getFecha_fin());
+        // Un mes calendario desde el inicio, inclusive. No es fin.plusMonths(1): cerca de fin de mes
+        // difieren (inicio 31/10 → fin 29/11, no 30/11).
+        var inicio = fin.plusDays(1);
+        assertEquals(inicio, renovada.getFecha_inicio());
+        assertEquals(inicio.plusMonths(1).minusDays(1), renovada.getFecha_fin());
         assertEquals(EstadoSuscripcion.ACTIVA, renovada.getEstado());
     }
 
