@@ -12,6 +12,7 @@ import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaRepository;
 import com.servidos.v1.ordering.infrastructure.mapper.PedidoMapper;
 import com.servidos.v1.shared.event.EventPublisher;
 import com.servidos.v1.shared.exception.BusinessException;
+import com.servidos.v1.shared.exception.ForbiddenException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,13 +20,25 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CambiarEstadoPedidoUseCase {
+    private static final String MESERO = "MESERO";
+
     private final PedidoJpaRepository pedidoRepository;
     private final PedidoMapper pedidoMapper;
     private final PedidoPagoPort pagoPort;
     private final EventPublisher eventPublisher;
 
+    /** Flujos internos (confirmar, cancelar al reembolsar): sin restricción de rol, solo la matriz. */
     @Transactional
     public Pedido ejecutar(Long pedidoId, Long restauranteId, EstadoPedido nuevoEstado) {
+        return ejecutar(pedidoId, restauranteId, nuevoEstado, null);
+    }
+
+    /**
+     * Cambio pedido por un usuario. El rol sale del JWT ({@code CurrentUser}), nunca del JSON. El MESERO
+     * solo puede pasar un pedido MESA de LISTO a ENTREGADO; los demás roles usan la matriz completa.
+     */
+    @Transactional
+    public Pedido ejecutar(Long pedidoId, Long restauranteId, EstadoPedido nuevoEstado, String rol) {
         if (pedidoId == null) {
             throw new BusinessException("Pedido no identificado");
         }
@@ -37,6 +50,9 @@ public class CambiarEstadoPedidoUseCase {
         }
         PedidoJpaEntity pedido = pedidoRepository.findByPedidoIdAndRestauranteId(pedidoId, restauranteId)
                 .orElseThrow(() -> new BusinessException("Pedido no encontrado"));
+        if (MESERO.equalsIgnoreCase(rol)) {
+            exigirEntregaDeMesa(pedido, nuevoEstado);
+        }
         validarTransicion(pedido, nuevoEstado);
         EstadoPedido anterior = pedido.getEstado();
         pedido.setEstado(nuevoEstado);
@@ -49,6 +65,14 @@ public class CambiarEstadoPedidoUseCase {
             eventPublisher.publish(new PedidoEntregadoEvent(pedidoId, restauranteId));
         }
         return pedidoMapper.toDomain(guardado);
+    }
+
+    private void exigirEntregaDeMesa(PedidoJpaEntity pedido, EstadoPedido nuevo) {
+        if (pedido.getTipoPedido() != TipoPedido.MESA
+                || pedido.getEstado() != EstadoPedido.LISTO
+                || nuevo != EstadoPedido.ENTREGADO) {
+            throw new ForbiddenException("El mesero solo puede marcar como entregado un pedido de mesa listo");
+        }
     }
 
     private void validarTransicion(PedidoJpaEntity pedido, EstadoPedido nuevo) {

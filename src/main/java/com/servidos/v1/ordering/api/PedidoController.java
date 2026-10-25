@@ -53,9 +53,9 @@ public class PedidoController {
     private final ListarPedidosUseCase listarPedidosUseCase;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION','CAJERO')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION','CAJERO','MESERO')")
     @Operation(summary = "Listar pedidos del restaurante actual",
-            description = "Del más nuevo al más viejo, paginado (`?page=&size=`, default `size=20`, máximo 100; "
+            description = "Roles: ADMINISTRADOR, RECEPCION, CAJERO y MESERO. Del más nuevo al más viejo, paginado (`?page=&size=`, default `size=20`, máximo 100; "
                     + "el orden es fijo). Filtros opcionales: `estado`, `fecha` (día de creación, hora de Lima) y "
                     + "`porCobrar=true` (no cancelados y sin pago). Cada pedido trae `estadoPago`.")
     @ApiResponses({
@@ -82,9 +82,11 @@ public class PedidoController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION','MESERO')")
     @Operation(summary = "Crear pedido en el restaurante actual",
-            description = "El restauranteId se toma del JWT, nunca del JSON. Precios anti-tamper desde DB.")
+            description = "Roles: ADMINISTRADOR, RECEPCION y MESERO. El MESERO solo toma pedidos `MESA` y `RECOJO` "
+                    + "con `mesaId` (para llevar de una mesa); `DELIVERY` o `RECOJO` sin mesa → 403. "
+                    + "El restauranteId y el rol se toman del JWT, nunca del JSON. Precios anti-tamper desde DB.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Pedido creado",
                     content = @Content(schema = @Schema(implementation = PedidoResponse.class))),
@@ -92,7 +94,7 @@ public class PedidoController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Sin sesión",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "403", description = "Sin permiso",
+            @ApiResponse(responseCode = "403", description = "Sin permiso, o MESERO con un DELIVERY o un RECOJO sin mesa",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "422", description = "Validación Jakarta (@Valid)",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
@@ -104,14 +106,15 @@ public class PedidoController {
                         request.items().stream()
                                 .map(i -> new CrearPedidoItem(i.productoId(), i.cantidad(), i.observacion()))
                                 .toList()),
-                TenantContext.getRestauranteId(), CurrentUser.getCurrentUser());
+                TenantContext.getRestauranteId(), CurrentUser.getCurrentUser(), CurrentUser.getRole());
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(creado));
     }
 
     @PostMapping("/{id}/confirmar")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION','MESERO')")
     @Operation(summary = "Confirmar pedido (PENDIENTE → EN_PREPARACION)",
-            description = "Lo usa RECEPCION para mandar el pedido a preparación. Delega la matriz de transición.")
+            description = "Roles: ADMINISTRADOR, RECEPCION y MESERO. Manda el pedido a cocina. "
+                    + "Delega la matriz de transición.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Pedido confirmado",
                     content = @Content(schema = @Schema(implementation = PedidoResponse.class))),
@@ -128,9 +131,11 @@ public class PedidoController {
     }
 
     @PatchMapping("/{id}/estado")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION','MESERO')")
     @Operation(summary = "Cambiar estado del pedido",
-            description = "Respeta la matriz por tipo (MESA/DELIVERY). CANCELADO en pedido pagado → 400.")
+            description = "Roles: ADMINISTRADOR y RECEPCION con la matriz completa por tipo (MESA/DELIVERY). "
+                    + "El MESERO solo puede pasar un pedido `MESA` de `LISTO` a `ENTREGADO`; cualquier otro cambio → 403. "
+                    + "El rol se toma del JWT. CANCELADO en pedido pagado → 400.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Estado actualizado",
                     content = @Content(schema = @Schema(implementation = PedidoResponse.class))),
@@ -138,7 +143,8 @@ public class PedidoController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Sin sesión",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "403", description = "Sin permiso",
+            @ApiResponse(responseCode = "403", description = "Sin permiso, o MESERO con un cambio distinto de "
+                    + "LISTO → ENTREGADO en un pedido MESA (\"El mesero solo puede marcar como entregado un pedido de mesa listo\")",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "422", description = "Validación Jakarta (@Valid)",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
@@ -146,7 +152,8 @@ public class PedidoController {
             @Parameter(description = "ID del pedido", example = "1") @PathVariable Long id,
             @Valid @RequestBody CambiarEstadoRequest request) {
         return ResponseEntity.ok(toResponse(
-                cambiarEstadoPedidoUseCase.ejecutar(id, TenantContext.getRestauranteId(), request.estado())));
+                cambiarEstadoPedidoUseCase.ejecutar(
+                        id, TenantContext.getRestauranteId(), request.estado(), CurrentUser.getRole())));
     }
 
     private PedidoResponse toResponse(Pedido p) {

@@ -15,6 +15,7 @@ import com.servidos.v1.ordering.infrastructure.mapper.DetallePedidoMapper;
 import com.servidos.v1.ordering.infrastructure.mapper.PedidoMapper;
 import com.servidos.v1.shared.event.EventPublisher;
 import com.servidos.v1.shared.exception.BusinessException;
+import com.servidos.v1.shared.exception.ForbiddenException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,8 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class CrearPedidoUseCase {
+    private static final String MESERO = "MESERO";
+
     private final PedidoJpaRepository pedidoRepository;
     private final DetallePedidoJpaRepository detalleRepository;
     private final ProductCatalogPort productoCatalog;
@@ -36,10 +39,20 @@ public class CrearPedidoUseCase {
 
     @Transactional
     public Pedido ejecutar(CrearPedidoCommand cmd, Long restauranteId, Long usuarioId) {
+        return ejecutar(cmd, restauranteId, usuarioId, null);
+    }
+
+    /**
+     * El rol sale del JWT ({@code CurrentUser}), nunca del JSON. El MESERO atiende el salón: toma pedidos
+     * MESA y el RECOJO "para llevar" de una mesa, pero no DELIVERY ni RECOJO sin mesa.
+     */
+    @Transactional
+    public Pedido ejecutar(CrearPedidoCommand cmd, Long restauranteId, Long usuarioId, String rol) {
         if (restauranteId == null) throw new BusinessException("Restaurante no identificado");
         // pedido.usuario_id es NOT NULL: registra quién tomó el pedido.
         if (usuarioId == null) throw new BusinessException("Usuario no identificado");
         validar(cmd);
+        if (MESERO.equalsIgnoreCase(rol)) exigirPedidoDeSalon(cmd);
         // Valida la mesa y, si el pedido es de mesa, la ocupa (con lock) antes de guardar el pedido.
         asignarMesa.ejecutar(cmd.mesaId(), cmd.tipoPedido(), restauranteId);
 
@@ -81,6 +94,14 @@ public class CrearPedidoUseCase {
         eventPublisher.publish(new PedidoCreadoEvent(savedPedido.getPedidoId(), restauranteId));
 
         return pedidoMapper.toDomain(savedPedido);
+    }
+
+    private void exigirPedidoDeSalon(CrearPedidoCommand cmd) {
+        boolean deSalon = cmd.tipoPedido() == TipoPedido.MESA
+                || (cmd.tipoPedido() == TipoPedido.RECOJO && cmd.mesaId() != null);
+        if (!deSalon) {
+            throw new ForbiddenException("El mesero solo puede tomar pedidos de mesa o para llevar de una mesa");
+        }
     }
 
     private void validar(CrearPedidoCommand cmd) {

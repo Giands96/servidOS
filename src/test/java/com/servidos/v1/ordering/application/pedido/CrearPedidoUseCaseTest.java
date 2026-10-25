@@ -11,9 +11,12 @@ import com.servidos.v1.ordering.infrastructure.mapper.DetallePedidoMapper;
 import com.servidos.v1.ordering.infrastructure.mapper.PedidoMapper;
 import com.servidos.v1.shared.event.EventPublisher;
 import com.servidos.v1.shared.exception.BusinessException;
+import com.servidos.v1.shared.exception.ForbiddenException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -142,5 +145,47 @@ class CrearPedidoUseCaseTest {
         var pedido = useCase.ejecutar(comando(7L), 10L, 5L);
 
         assertEquals(5L, pedido.getUsuario_id());
+    }
+
+    private void dadoProductoDisponible() {
+        dadoPedidoGuardado();
+        when(productoCatalog.findInfoByIdAndRestaurante(7L, 10L))
+                .thenReturn(Optional.of(new ProductoCatalogInfo("Pizza Muzzarella", new BigDecimal("25.00"), true)));
+    }
+
+    private static CrearPedidoCommand comando(TipoPedido tipo, Long mesaId) {
+        return new CrearPedidoCommand(tipo, mesaId, null, tipo == TipoPedido.DELIVERY ? "Juan" : null,
+                List.of(new CrearPedidoItem(7L, 1, null)));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"MESA, 3", "RECOJO, 3"})
+    void meseroTomaPedidosDeMesaYParaLlevarDeUnaMesa(TipoPedido tipo, Long mesaId) {
+        dadoProductoDisponible();
+
+        var pedido = useCase.ejecutar(comando(tipo, mesaId), 10L, 5L, "MESERO");
+
+        assertEquals(tipo, pedido.getTipoPedido());
+        org.mockito.Mockito.verify(asignarMesa).ejecutar(mesaId, tipo, 10L);
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {"DELIVERY, 3", "DELIVERY, NULL", "RECOJO, NULL"}, nullValues = "NULL")
+    void meseroNoTomaDeliveryNiRecojoSinMesa(TipoPedido tipo, Long mesaId) {
+        var ex = assertThrows(ForbiddenException.class,
+                () -> useCase.ejecutar(comando(tipo, mesaId), 10L, 5L, "MESERO"));
+
+        assertEquals("El mesero solo puede tomar pedidos de mesa o para llevar de una mesa", ex.getMessage());
+        org.mockito.Mockito.verifyNoInteractions(asignarMesa, pedidoRepository, eventPublisher);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"ADMINISTRADOR", "RECEPCION"})
+    void administradorYRecepcionSiguenTomandoDeliverySinMesa(String rol) {
+        dadoProductoDisponible();
+
+        var pedido = useCase.ejecutar(comando(TipoPedido.DELIVERY, null), 10L, 5L, rol);
+
+        assertEquals(TipoPedido.DELIVERY, pedido.getTipoPedido());
     }
 }
