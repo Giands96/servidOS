@@ -35,14 +35,14 @@ class CuentaMesaSeguridadIntegracionTest {
     private final HttpClient http = HttpClient.newHttpClient();
 
     @ParameterizedTest
-    @ValueSource(strings = {"COCINERO", "REPARTIDOR"})
+    @ValueSource(strings = {"MESERO", "COCINERO", "REPARTIDOR"})
     void losRolesSinPermisoDeCajaReciben403AlConsultar(String rol) throws Exception {
         assertEquals(403, get("/api/v1/mesas/1/cuenta", jwtService.generate(1L, RESTAURANTE, rol)).statusCode());
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"ADMINISTRADOR", "RECEPCION", "CAJERO", "MESERO"})
-    void losRolesDeCajaYElMeseroPasanLaSeguridadAlConsultar(String rol) throws Exception {
+    @ValueSource(strings = {"ADMINISTRADOR", "RECEPCION", "CAJERO"})
+    void losRolesDeCajaPasanLaSeguridadAlConsultar(String rol) throws Exception {
         assertEquals(400, get("/api/v1/mesas/1/cuenta", jwtService.generate(1L, RESTAURANTE, rol)).statusCode());
     }
 

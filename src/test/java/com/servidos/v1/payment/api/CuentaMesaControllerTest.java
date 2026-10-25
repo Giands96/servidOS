@@ -36,7 +36,6 @@ import static org.mockito.Mockito.when;
 class CuentaMesaControllerTest {
 
     static final String ROLES_DE_CAJA = "hasAnyRole('ADMINISTRADOR','RECEPCION','CAJERO')";
-    static final String ROLES_DE_SALON = "hasAnyRole('ADMINISTRADOR','RECEPCION','CAJERO','MESERO')";
 
     @Mock ConsultarCuentaMesaUseCase consultarCuentaMesaUseCase;
     @Mock PagarCuentaMesaUseCase pagarCuentaMesaUseCase;
@@ -90,8 +89,8 @@ class CuentaMesaControllerTest {
     }
 
     @Test
-    void consultarLoHacenLosRolesDeCajaYElMesero() throws Exception {
-        assertEquals(ROLES_DE_SALON, permisos("consultar", Long.class));
+    void consultarSoloLoHacenLosRolesDeCaja() throws Exception {
+        assertEquals(ROLES_DE_CAJA, permisos("consultar", Long.class));
     }
 
     @Test
