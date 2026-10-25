@@ -1,6 +1,6 @@
 # Cambios del backend para el frontend
 
-Fecha: 2026-10-08, actualizado el 2026-10-11 y el 2026-10-24 (cuenta de mesa, §18 y §19). Incluye lo mergeado en [Giands96/servidOS#12](https://github.com/Giands96/servidOS/pull/12) y lo nuevo de la rama `claude/optimistic-ramanujan-hfasob`, que todavía no está en `main`.
+Fecha: 2026-10-08, actualizado el 2026-10-11 y el 2026-10-24 (cuenta de mesa, §18 y §19; el MESERO atiende el salón, §20). Incluye lo mergeado en [Giands96/servidOS#12](https://github.com/Giands96/servidOS/pull/12) y lo nuevo de la rama `claude/optimistic-ramanujan-hfasob`, que todavía no está en `main`.
 
 Base de la API: `/api/v1`. Los formatos de error no cambian: siguen siendo `ErrorResponse`, con `status`, `message` y `path`.
 
@@ -27,6 +27,7 @@ Base de la API: `/api/v1`. Los formatos de error no cambian: siguen siendo `Erro
 | 17 | Período mensual con `fechaFin` inclusiva | ⚠️ Cambia la regla | Textos de vencimiento |
 | 18 | Nueva cuenta de mesa: `GET /mesas/{id}/cuenta` y `POST /mesas/{id}/cuenta/pagar` | ✅ Nuevo | Caja: cobrar una mesa de una vez |
 | 19 | Un RECOJO/DELIVERY vinculado sin cobrar retiene la mesa | ⚠️ Cambia la regla | Liberar mesa y mensajes de error |
+| 20 | El MESERO toma, confirma y entrega pedidos de mesa | ⚠️ Cambian los permisos | `permissions.rules.ts`, "Nuevo pedido · Local" y tablero |
 
 ---
 
@@ -395,7 +396,7 @@ Las suscripciones que ya existen conservan sus fechas.
 
 Antes, cobrar una mesa con 3 rondas y un pedido para llevar eran 4 llamadas a `POST /pagos`, y agruparlas desde el front no era atómico. Ahora hay dos endpoints nuevos; `POST /pagos` **no cambia**.
 
-Roles de los dos: **ADMINISTRADOR, RECEPCION y CAJERO** (cualquier otro rol recibe 403). El restaurante y el cajero salen del token: nunca se mandan en el body.
+Roles: `GET` lo usan **ADMINISTRADOR, RECEPCION, CAJERO y MESERO** (el MESERO desde §20: ve la cuenta, no la cobra); `POST .../pagar`, solo **ADMINISTRADOR, RECEPCION y CAJERO**. Cualquier otro rol recibe 403. El restaurante y el cajero salen del token: nunca se mandan en el body.
 
 ### `GET /mesas/{mesaId}/cuenta`
 
@@ -509,7 +510,7 @@ Como el resto de los cobros (§5), este endpoint **funciona aunque el restaurant
 
 **Qué tocar:**
 - Caja: en la vista de una mesa, mostrar `GET /mesas/{id}/cuenta` y un único botón "Cobrar cuenta" que llame a `POST /mesas/{id}/cuenta/pagar` con los `pedidoId` mostrados. Para cobrar un pedido suelto se sigue usando `POST /pagos`.
-- Permisos: nuevo permiso `cuenta.cobrar` (o reutilizar `pagos.registrar`) para ADMINISTRADOR, RECEPCION y CAJERO. El MESERO no ve la cuenta.
+- Permisos: nuevo permiso `cuenta.cobrar` (o reutilizar `pagos.registrar`) para ADMINISTRADOR, RECEPCION y CAJERO. El MESERO ve la cuenta (§20) pero no la cobra.
 
 ## 19. Un RECOJO/DELIVERY vinculado sin cobrar retiene la mesa ⚠️
 
@@ -528,6 +529,46 @@ Efectos visibles:
 - `POST /mesas/{id}/desactivar` responde 400 con el mismo mensaje en ese caso.
 
 **Qué tocar:** el mensaje "La mesa tiene pedidos abiertos" ahora puede deberse a un pedido para llevar sin cobrar; llevar al cajero a la cuenta de la mesa (§18) para cobrarlo o cancelarlo.
+
+## 20. El MESERO toma, confirma y entrega pedidos de mesa ⚠️
+
+El MESERO atiende el salón completo: ve y ocupa mesas (ya podía), **toma pedidos**, los **manda a cocina** y los **marca entregados** cuando los lleva a la mesa. No cobra, no reembolsa, no cancela y no maneja delivery. Puede reutilizar "Nuevo pedido · Local" (selector de mesas y cuenta de la mesa ocupada) y el tablero de pedidos.
+
+| Endpoint | Antes | Ahora |
+|---|---|---|
+| `POST /pedidos` | ADMINISTRADOR, RECEPCION | + MESERO (ver tipos abajo) |
+| `GET /pedidos` (incluye `?porCobrar=true`) | ADMINISTRADOR, RECEPCION, CAJERO | + MESERO |
+| `GET /mesas/{mesaId}/cuenta` | ADMINISTRADOR, RECEPCION, CAJERO | + MESERO |
+| `POST /pedidos/{id}/confirmar` | ADMINISTRADOR, RECEPCION | + MESERO |
+| `PATCH /pedidos/{id}/estado` | ADMINISTRADOR, RECEPCION | + MESERO, **solo `LISTO → ENTREGADO` en pedidos `MESA`** |
+| `POST /mesas/{mesaId}/cuenta/pagar` y `POST /pagos` | ADMINISTRADOR, RECEPCION, CAJERO | Sin cambios: el MESERO recibe 403 |
+
+El rol sale del token, nunca del body. Para ADMINISTRADOR y RECEPCION nada cambia.
+
+**`PATCH /pedidos/{id}/estado` con MESERO.** La única transición permitida es `LISTO → ENTREGADO` en un pedido `MESA`. Cualquier otra (CANCELADO, `EN_ENTREGA`, ENTREGADO de un DELIVERY o un RECOJO, volver atrás, o adelantar `PENDIENTE → EN_PREPARACION` por este endpoint) responde:
+
+| Código | `message` |
+|---|---|
+| 403 | "El mesero solo puede marcar como entregado un pedido de mesa listo" |
+| 400 | "Pedido no encontrado" (inexistente o de otro restaurante, igual que antes) |
+
+Para mandar a cocina el MESERO usa `POST /pedidos/{id}/confirmar`, que no tiene restricción extra: confirma cualquier pedido PENDIENTE del restaurante, también un DELIVERY o un RECOJO que haya tomado otro rol. Si el pedido ya estaba cobrado, al entregarlo la mesa se libera sola (§19, sin cambios).
+
+**Tipos de pedido que puede crear el MESERO (decisión):**
+
+| `tipoPedido` | `mesaId` | MESERO |
+|---|---|---|
+| `MESA` | obligatorio | ✅ 201 |
+| `RECOJO` | presente ("para llevar" de la mesa) | ✅ 201 |
+| `RECOJO` | ausente | ❌ 403 |
+| `DELIVERY` | con o sin mesa | ❌ 403 |
+
+El 403 trae `message` "El mesero solo puede tomar pedidos de mesa o para llevar de una mesa". El RECOJO "para llevar" que toma el MESERO lo entrega RECEPCION o ADMINISTRADOR (el MESERO solo entrega pedidos `MESA`).
+
+**Qué tocar:**
+- `core/auth/domain/permissions.rules.ts`: sumar `MESERO` a crear, listar y confirmar pedidos, a ver la cuenta de la mesa y a cambiar estado (con la regla de arriba). No sumarlo a `pagos.registrar` ni al cobro de la cuenta.
+- "Nuevo pedido · Local": para el MESERO, ofrecer solo `MESA` y "para llevar" con la mesa seleccionada; ocultar DELIVERY y RECOJO sin mesa.
+- Tablero de pedidos: para el MESERO, mostrar "Confirmar" en PENDIENTE (usa `/confirmar`) y "Entregado" solo en pedidos `MESA` LISTO; ocultar "Cancelar", "En camino" y el cobro.
 
 ---
 
@@ -550,3 +591,5 @@ Efectos visibles:
 - [ ] Cuenta de mesa: `GET /mesas/{id}/cuenta` y botón "Cobrar cuenta" con `POST /mesas/{id}/cuenta/pagar` (§18).
 - [ ] Ante "La cuenta cambió, vuelva a cargarla", recargar la cuenta y pedir confirmación otra vez (§18).
 - [ ] Entender que un RECOJO/DELIVERY vinculado sin cobrar impide liberar o dar de baja la mesa (§19).
+- [ ] Permisos del MESERO: crear, listar, confirmar, ver la cuenta y entregar pedidos `MESA` LISTO; sin cobro ni cancelación (§20).
+- [ ] "Nuevo pedido · Local" para el MESERO: solo `MESA` y "para llevar" de una mesa (§20).

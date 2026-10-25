@@ -42,9 +42,10 @@ public class CuentaMesaController {
     private final PagarCuentaMesaUseCase pagarCuentaMesaUseCase;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION','CAJERO')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION','CAJERO','MESERO')")
     @Operation(summary = "Consultar la cuenta de la mesa",
-            description = "Pedidos pendientes de cobro de la mesa (rondas de mesa y recojo/delivery vinculados, "
+            description = "Roles: ADMINISTRADOR, RECEPCION, CAJERO y MESERO (el mesero la ve, no la cobra). "
+                    + "Pedidos pendientes de cobro de la mesa (rondas de mesa y recojo/delivery vinculados, "
                     + "no cancelados y sin pago) con sus ítems y el total calculado en el servidor. "
                     + "El restauranteId se toma del JWT. Sin pendientes devuelve `pedidos: []` y `total: 0`.")
     @ApiResponses({

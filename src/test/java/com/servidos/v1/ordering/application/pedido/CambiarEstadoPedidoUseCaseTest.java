@@ -11,9 +11,12 @@ import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaRepository;
 import com.servidos.v1.ordering.infrastructure.mapper.PedidoMapper;
 import com.servidos.v1.shared.event.EventPublisher;
 import com.servidos.v1.shared.exception.BusinessException;
+import com.servidos.v1.shared.exception.ForbiddenException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -204,5 +207,76 @@ class CambiarEstadoPedidoUseCaseTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> useCase.ejecutar(1L, 10L, EstadoPedido.CANCELADO));
         assertTrue(ex.getMessage().contains("pagado"));
+    }
+
+    @Test
+    void meseroMarcaEntregadoUnPedidoDeMesaListo() {
+        dadoSave();
+        dadoPedido(pedido(EstadoPedido.LISTO, TipoPedido.MESA));
+
+        assertEquals(EstadoPedido.ENTREGADO,
+                useCase.ejecutar(1L, 10L, EstadoPedido.ENTREGADO, "MESERO").getEstado());
+        verify(eventPublisher).publish(any(PedidoEntregadoEvent.class));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "PENDIENTE, MESA, CANCELADO",
+            "LISTO, MESA, CANCELADO",
+            "PENDIENTE, MESA, EN_PREPARACION",
+            "EN_PREPARACION, MESA, LISTO",
+            "ENTREGADO, MESA, LISTO",
+            "LISTO, DELIVERY, EN_ENTREGA",
+            "EN_ENTREGA, DELIVERY, ENTREGADO",
+            "LISTO, RECOJO, ENTREGADO"})
+    void meseroSoloPuedeEntregarPedidosDeMesaListos(EstadoPedido actual, TipoPedido tipo, EstadoPedido nuevo) {
+        dadoPedido(pedido(actual, tipo));
+
+        var ex = assertThrows(ForbiddenException.class, () -> useCase.ejecutar(1L, 10L, nuevo, "MESERO"));
+
+        assertEquals("El mesero solo puede marcar como entregado un pedido de mesa listo", ex.getMessage());
+        verify(pedidoRepository, never()).save(any());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void meseroConPedidoDeOtroRestauranteRecibeNoEncontrado() {
+        when(pedidoRepository.findByPedidoIdAndRestauranteId(1L, 10L)).thenReturn(Optional.empty());
+
+        var ex = assertThrows(BusinessException.class,
+                () -> useCase.ejecutar(1L, 10L, EstadoPedido.ENTREGADO, "MESERO"));
+
+        assertEquals("Pedido no encontrado", ex.getMessage());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "ADMINISTRADOR, PENDIENTE, MESA, EN_PREPARACION",
+            "ADMINISTRADOR, PENDIENTE, MESA, CANCELADO",
+            "ADMINISTRADOR, EN_PREPARACION, RECOJO, LISTO",
+            "ADMINISTRADOR, LISTO, RECOJO, ENTREGADO",
+            "ADMINISTRADOR, LISTO, DELIVERY, EN_ENTREGA",
+            "ADMINISTRADOR, EN_ENTREGA, DELIVERY, ENTREGADO",
+            "ADMINISTRADOR, EN_ENTREGA, DELIVERY, CANCELADO",
+            "RECEPCION, PENDIENTE, MESA, EN_PREPARACION",
+            "RECEPCION, EN_PREPARACION, MESA, CANCELADO",
+            "RECEPCION, LISTO, MESA, ENTREGADO",
+            "RECEPCION, LISTO, DELIVERY, EN_ENTREGA",
+            "RECEPCION, EN_ENTREGA, DELIVERY, ENTREGADO"})
+    void administradorYRecepcionConservanLaMatriz(String rol, EstadoPedido actual, TipoPedido tipo, EstadoPedido nuevo) {
+        dadoSave();
+        dadoPedido(pedido(actual, tipo));
+
+        assertEquals(nuevo, useCase.ejecutar(1L, 10L, nuevo, rol).getEstado());
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {"NULL", "''", "COCINERO", "CAJERO", "ROLE_MESERO", "SUPERADMIN"}, nullValues = "NULL")
+    void unRolNuloODesconocidoNoSalteaLaRegla(String rol) {
+        var ex = assertThrows(ForbiddenException.class,
+                () -> useCase.ejecutar(1L, 10L, EstadoPedido.CANCELADO, rol));
+
+        assertEquals("Rol sin permiso para cambiar el estado del pedido", ex.getMessage());
+        verifyNoInteractions(pedidoRepository, eventPublisher);
     }
 }

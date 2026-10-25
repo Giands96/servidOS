@@ -10,6 +10,7 @@ import com.servidos.v1.ordering.application.pedido.CrearPedidoUseCase;
 import com.servidos.v1.ordering.domain.EstadoPedido;
 import com.servidos.v1.ordering.domain.Pedido;
 import com.servidos.v1.ordering.domain.TipoPedido;
+import com.servidos.v1.shared.security.CurrentUser;
 import com.servidos.v1.shared.security.TenantContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,8 +19,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,11 +47,14 @@ class PedidoControllerTest {
         controller = new PedidoController(crearPedidoUseCase, confirmarPedidoUseCase, cambiarEstadoPedidoUseCase,
                 listarPedidosUseCase);
         TenantContext.setRestauranteId(100L);
+        CurrentUser.setCurrentUser(9L);
+        CurrentUser.setRole("MESERO");
     }
 
     @AfterEach
     void limpiar() {
         TenantContext.clear();
+        CurrentUser.clear();
     }
 
     private static Pedido pedido(EstadoPedido estado) {
@@ -58,7 +65,7 @@ class PedidoControllerTest {
 
     @Test
     void crearDelegaYDa201() {
-        when(crearPedidoUseCase.ejecutar(any(), eq(100L), any())).thenReturn(pedido(EstadoPedido.PENDIENTE));
+        when(crearPedidoUseCase.ejecutar(any(), eq(100L), eq(9L), eq("MESERO"))).thenReturn(pedido(EstadoPedido.PENDIENTE));
 
         var resp = controller.crear(new CrearPedidoRequest(TipoPedido.MESA, 3L, null, null,
                 List.of(new CrearPedidoItemRequest(7L, 2, null))));
@@ -80,8 +87,8 @@ class PedidoControllerTest {
     }
 
     @Test
-    void cambiarEstadoDelegaYDa200() {
-        when(cambiarEstadoPedidoUseCase.ejecutar(1L, 100L, EstadoPedido.LISTO))
+    void cambiarEstadoPasaElRolDelJwtYDa200() {
+        when(cambiarEstadoPedidoUseCase.ejecutar(1L, 100L, EstadoPedido.LISTO, "MESERO"))
                 .thenReturn(pedido(EstadoPedido.LISTO));
 
         var resp = controller.cambiarEstado(1L, new CambiarEstadoRequest(EstadoPedido.LISTO));
@@ -105,5 +112,24 @@ class PedidoControllerTest {
         var fila = resp.getBody().getContent().get(0);
         assertEquals(7L, fila.pedidoId());
         assertEquals("PAGADO", fila.estadoPago());
+    }
+
+    private static String permisos(String metodo, Class<?>... tipos) throws NoSuchMethodException {
+        Method m = PedidoController.class.getMethod(metodo, tipos);
+        return m.getAnnotation(PreAuthorize.class).value();
+    }
+
+    @Test
+    void elMeseroTomaConfirmaYCambiaEstadoJuntoARecepcion() throws Exception {
+        String salon = "hasAnyRole('ADMINISTRADOR','RECEPCION','MESERO')";
+        assertEquals(salon, permisos("crear", CrearPedidoRequest.class));
+        assertEquals(salon, permisos("confirmar", Long.class));
+        assertEquals(salon, permisos("cambiarEstado", Long.class, CambiarEstadoRequest.class));
+    }
+
+    @Test
+    void elMeseroLeeElListadoJuntoALaCaja() throws Exception {
+        assertEquals("hasAnyRole('ADMINISTRADOR','RECEPCION','CAJERO','MESERO')",
+                permisos("listar", EstadoPedido.class, LocalDate.class, boolean.class, int.class, int.class));
     }
 }
