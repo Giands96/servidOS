@@ -20,6 +20,8 @@ public class PreparacionPedido {
     private Long pedido_id;
     private Long restaurante_id;
     private Long mesa_id;
+    /** Número actual de la mesa; null sin mesa. */
+    private Integer numero_mesa;
     private TipoPedido tipoPedido;
     private EstadoPedido estado;
     private String observacion;

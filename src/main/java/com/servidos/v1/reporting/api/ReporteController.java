@@ -81,7 +81,8 @@ public class ReporteController {
                 reporte.periodo(), reporte.rango().desde(), reporte.rango().hasta(),
                 reporte.resumen().cantidadVentas(), reporte.resumen().totalVendido(),
                 reporte.ventas().map(v -> new VentaPedidoResponse(
-                        v.pedidoId(), v.fechaPago(), v.tipoPedido(), v.metodoPago(), v.total()))));
+                        v.pedidoId(), v.fechaPago(), v.tipoPedido(), v.metodoPago(), v.total(),
+                        v.mesaId(), v.numeroMesa()))));
     }
 
     @GetMapping("/productos")

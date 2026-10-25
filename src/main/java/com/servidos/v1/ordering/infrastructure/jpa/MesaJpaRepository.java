@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,6 +27,9 @@ public interface MesaJpaRepository extends JpaRepository<MesaJpaEntity, Long> {
     boolean existsByRestauranteIdAndNumeroAndActivaTrueAndMesaIdNot(Long restauranteId, Integer numero, Long mesaId);
 
     Optional<MesaJpaEntity> findByMesaIdAndRestauranteId(Long mesaId, Long restauranteId);
+
+    // Activas e inactivas: una mesa dada de baja conserva su número en el historial de pedidos.
+    List<MesaJpaEntity> findByRestauranteIdAndMesaIdIn(Long restauranteId, Collection<Long> mesaIds);
 
     /**
      * Trae la mesa del tenant con lock de escritura (SELECT ... FOR UPDATE) hasta el fin de la

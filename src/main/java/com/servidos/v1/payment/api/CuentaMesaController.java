@@ -94,7 +94,7 @@ public class CuentaMesaController {
 
     private PagarCuentaMesaResponse toResponse(CuentaPagada c) {
         return new PagarCuentaMesaResponse(
-                c.cuentaId(), c.mesaId(), c.total(), c.metodoPago(), c.vuelto(),
+                c.cuentaId(), c.mesaId(), c.numeroMesa(), c.total(), c.metodoPago(), c.vuelto(),
                 c.pagos().stream()
                         .map(p -> new PagarCuentaMesaResponse.PagoCuentaResponse(p.pagoId(), p.pedidoId(), p.monto()))
                         .toList());

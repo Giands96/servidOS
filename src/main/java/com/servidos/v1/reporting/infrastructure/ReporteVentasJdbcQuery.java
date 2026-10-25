@@ -28,9 +28,7 @@ import java.util.List;
 public class ReporteVentasJdbcQuery implements ReporteVentasQuery {
 
     /** Ventas del restaurante en [desde, hasta). */
-    private static final String VENTAS_DEL_PERIODO = """
-            FROM pago pg
-            JOIN pedido p ON p.pedido_id = pg.pedido_id AND p.restaurante_id = pg.restaurante_id
+    private static final String FILTRO_VENTAS = """
             WHERE pg.restaurante_id = :restauranteId
               AND pg.estado = 'PAGADO'
               AND p.estado <> 'CANCELADO'
@@ -38,9 +36,18 @@ public class ReporteVentasJdbcQuery implements ReporteVentasQuery {
               AND pg.fecha_pago < :hasta
             """;
 
+    private static final String VENTAS_DEL_PERIODO = """
+            FROM pago pg
+            JOIN pedido p ON p.pedido_id = pg.pedido_id AND p.restaurante_id = pg.restaurante_id
+            """ + FILTRO_VENTAS;
+
+    /** Número actual de la mesa, aunque esté dada de baja; sin mesa queda null. */
     private static final String SELECT_VENTAS = """
-            SELECT p.pedido_id, pg.fecha_pago, p.tipo_pedido, pg.metodo_pago, p.total
-            """ + VENTAS_DEL_PERIODO;
+            SELECT p.pedido_id, pg.fecha_pago, p.tipo_pedido, pg.metodo_pago, p.total, p.mesa_id, m.numero AS numero_mesa
+            FROM pago pg
+            JOIN pedido p ON p.pedido_id = pg.pedido_id AND p.restaurante_id = pg.restaurante_id
+            LEFT JOIN mesa m ON m.mesa_id = p.mesa_id AND m.restaurante_id = p.restaurante_id
+            """ + FILTRO_VENTAS;
 
     private static final String SELECT_RESUMEN = """
             SELECT COUNT(*) AS cantidad, COALESCE(SUM(p.total), 0) AS total
@@ -77,7 +84,9 @@ public class ReporteVentasJdbcQuery implements ReporteVentasQuery {
             rs.getObject("fecha_pago", LocalDateTime.class),
             rs.getString("tipo_pedido"),
             rs.getString("metodo_pago"),
-            rs.getBigDecimal("total"));
+            rs.getBigDecimal("total"),
+            rs.getObject("mesa_id", Long.class),
+            rs.getObject("numero_mesa", Integer.class));
 
     private final NamedParameterJdbcTemplate jdbc;
 

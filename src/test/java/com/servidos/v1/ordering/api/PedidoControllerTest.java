@@ -4,6 +4,7 @@ import com.servidos.v1.ordering.api.dto.CambiarEstadoRequest;
 import com.servidos.v1.ordering.api.dto.CrearPedidoItemRequest;
 import com.servidos.v1.ordering.api.dto.CrearPedidoRequest;
 import com.servidos.v1.ordering.application.pedido.CambiarEstadoPedidoUseCase;
+import com.servidos.v1.ordering.application.mesa.NumerosDeMesa;
 import com.servidos.v1.ordering.application.pedido.ListarPedidosUseCase;
 import com.servidos.v1.ordering.application.pedido.ConfirmarPedidoUseCase;
 import com.servidos.v1.ordering.application.pedido.CrearPedidoUseCase;
@@ -39,13 +40,14 @@ class PedidoControllerTest {
     @Mock ConfirmarPedidoUseCase confirmarPedidoUseCase;
     @Mock CambiarEstadoPedidoUseCase cambiarEstadoPedidoUseCase;
     @Mock ListarPedidosUseCase listarPedidosUseCase;
+    @Mock NumerosDeMesa numerosDeMesa;
 
     PedidoController controller;
 
     @BeforeEach
     void setUp() {
         controller = new PedidoController(crearPedidoUseCase, confirmarPedidoUseCase, cambiarEstadoPedidoUseCase,
-                listarPedidosUseCase);
+                listarPedidosUseCase, numerosDeMesa);
         TenantContext.setRestauranteId(100L);
         CurrentUser.setCurrentUser(9L);
         CurrentUser.setRole("MESERO");
@@ -105,13 +107,14 @@ class PedidoControllerTest {
                 .total(new java.math.BigDecimal("10.00")).build();
         when(listarPedidosUseCase.listar(100L, null, null, true, 0, 20)).thenReturn(
                 new org.springframework.data.domain.PageImpl<>(
-                        java.util.List.of(new ListarPedidosUseCase.PedidoListado(pedido, "PAGADO"))));
+                        java.util.List.of(new ListarPedidosUseCase.PedidoListado(pedido, "PAGADO", 4))));
 
         var resp = controller.listar(null, null, true, 0, 20);
 
         var fila = resp.getBody().getContent().get(0);
         assertEquals(7L, fila.pedidoId());
         assertEquals("PAGADO", fila.estadoPago());
+        assertEquals(4, fila.numeroMesa());
     }
 
     private static String permisos(String metodo, Class<?>... tipos) throws NoSuchMethodException {

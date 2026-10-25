@@ -76,7 +76,7 @@ class ReporteControllerTest {
     @Test
     void ventasUsaElTenantDelJwtYMapeaLaRespuesta() {
         var venta = new VentaPedido(7L, LocalDateTime.of(2026, 10, 22, 13, 30), "DELIVERY", "YAPE",
-                new BigDecimal("50.00"));
+                new BigDecimal("50.00"), null, null);
         var pageable = PageRequest.of(1, 5);
         when(ventasUseCase.generar(100L, Periodo.SEMANAL, VIERNES, OrdenVentas.MAYOR_VENTA, 1, 5))
                 .thenReturn(new ReporteVentas(Periodo.SEMANAL, SEMANA, RESUMEN,

@@ -9,6 +9,7 @@ import java.util.List;
 public record CuentaPagada(
         Long cuentaId,
         Long mesaId,
+        Integer numeroMesa,
         BigDecimal total,
         MetodoPago metodoPago,
         BigDecimal vuelto,

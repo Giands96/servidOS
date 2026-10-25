@@ -52,9 +52,9 @@ class ExportarReporteVentasUseCaseTest {
         when(query.resumen(100L, rango)).thenReturn(new ResumenVentas(2, new BigDecimal("1284.50")));
         when(query.todasLasVentas(100L, rango, orden)).thenReturn(List.of(
                 new VentaPedido(15L, LocalDateTime.of(2026, 10, 23, 13, 5), "DELIVERY", "YAPE",
-                        new BigDecimal("1234.50")),
+                        new BigDecimal("1234.50"), null, null),
                 new VentaPedido(14L, LocalDateTime.of(2026, 10, 22, 20, 45), "RECOJO", "EFECTIVO",
-                        new BigDecimal("50.00"))));
+                        new BigDecimal("50.00"), 4L, 2)));
     }
 
     @Test
