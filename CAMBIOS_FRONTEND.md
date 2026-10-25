@@ -552,7 +552,7 @@ El rol sale del token, nunca del body. Para ADMINISTRADOR y RECEPCION nada cambi
 | 403 | "El mesero solo puede marcar como entregado un pedido de mesa listo" |
 | 400 | "Pedido no encontrado" (inexistente o de otro restaurante, igual que antes) |
 
-Para mandar a cocina el MESERO usa `POST /pedidos/{id}/confirmar`. Si el pedido ya estaba cobrado, al entregarlo la mesa se libera sola (§19, sin cambios).
+Para mandar a cocina el MESERO usa `POST /pedidos/{id}/confirmar`, que no tiene restricción extra: confirma cualquier pedido PENDIENTE del restaurante, también un DELIVERY o un RECOJO que haya tomado otro rol. Si el pedido ya estaba cobrado, al entregarlo la mesa se libera sola (§19, sin cambios).
 
 **Tipos de pedido que puede crear el MESERO (decisión):**
 
