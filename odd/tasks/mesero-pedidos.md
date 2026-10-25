@@ -75,3 +75,9 @@ Entrega: `single-pr` apilado sobre `feat/cuenta-mesa`. Runner: `./mvnw -q test -
   en vez de 400 al pedir el mismo estado (sigue S2).
 - L8: progreso local en `docs/progress/2026-10-24-mesero-pedidos.md` (`docs/` está en `.gitignore`) con el fragmento para
   `FRONTEND_CONTEXT.md`.
+- L9: review RDD: assess nativo `medium/under_budget`, escalado por ítem 2 (permisos) -> `high`. Consentimiento otorgado
+  por el usuario. Lineage `review-01b53930f0d7fa8b`, 3 lentes (riesgo, legibilidad, confiabilidad) -> `approved`, sin
+  bloqueantes; acknowledge -> `authority: burned`. Cubre 096f984..d67c5f5.
+- L10: advisories de la review (no bloqueantes, trabajo aparte): R1-001/R2-001/R3: la regla del MESERO falla abierta si el
+  rol llega `null` (la sobrecarga sin rol es pública); sugerencia: lista de roles permitidos o sobrecarga interna no
+  pública. R2-002: "salón" nombra dos conjuntos de roles distintos en `PedidoControllerTest` y `CuentaMesaControllerTest`.
