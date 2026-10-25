@@ -85,6 +85,7 @@ public class CocinaController {
         return pedidos.stream().map(p -> new PreparacionPedidoResponse(
                 p.getPedido_id(),
                 p.getMesa_id(),
+                p.getNumero_mesa(),
                 p.getTipoPedido(),
                 p.getEstado(),
                 p.getObservacion(),

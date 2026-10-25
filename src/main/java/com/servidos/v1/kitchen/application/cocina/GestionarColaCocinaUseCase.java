@@ -2,8 +2,10 @@ package com.servidos.v1.kitchen.application.cocina;
 
 import com.servidos.v1.kitchen.domain.PreparacionPedido;
 import com.servidos.v1.kitchen.domain.event.PedidoPreparadoEvent;
+import com.servidos.v1.ordering.application.mesa.NumerosDeMesa;
 import com.servidos.v1.ordering.domain.EstadoPedido;
 import com.servidos.v1.ordering.infrastructure.jpa.DetallePedidoJpaRepository;
+import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaEntity;
 import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaRepository;
 import com.servidos.v1.ordering.infrastructure.mapper.DetallePedidoMapper;
 import com.servidos.v1.shared.event.EventPublisher;
@@ -22,6 +24,7 @@ public class GestionarColaCocinaUseCase {
     private final DetallePedidoJpaRepository detalleRepository;
     private final DetallePedidoMapper detallePedidoMapper;
     private final EventPublisher eventPublisher;
+    private final NumerosDeMesa numerosDeMesa;
 
     /**
      * Lista pedidos en preparación para un restaurante (proyección Kanban).
@@ -44,6 +47,8 @@ public class GestionarColaCocinaUseCase {
             throw new BusinessException("Restaurante no identificado");
         }
         var pedidos = pedidoRepository.findByRestauranteIdAndEstado(restauranteId, estado);
+        var numerosPorMesa = numerosDeMesa.de(
+                pedidos.stream().map(PedidoJpaEntity::getMesaId).toList(), restauranteId);
         return pedidos.stream().map(pedido -> {
             var items = detalleRepository.findByPedidoIdAndRestauranteId(pedido.getPedidoId(), restauranteId)
                     .stream()
@@ -53,6 +58,7 @@ public class GestionarColaCocinaUseCase {
                     .pedido_id(pedido.getPedidoId())
                     .restaurante_id(pedido.getRestauranteId())
                     .mesa_id(pedido.getMesaId())
+                    .numero_mesa(numerosPorMesa.get(pedido.getMesaId()))
                     .tipoPedido(pedido.getTipoPedido())
                     .estado(pedido.getEstado())
                     .observacion(pedido.getObservacion())

@@ -41,6 +41,7 @@ class GestionarColaCocinaUseCaseTest {
     @Mock com.servidos.v1.ordering.infrastructure.jpa.DetallePedidoJpaRepository detalleRepository;
     @Mock DetallePedidoMapper detallePedidoMapper;
     @Mock EventPublisher eventPublisher;
+    @Mock com.servidos.v1.ordering.application.mesa.NumerosDeMesa numerosDeMesa;
 
     @InjectMocks GestionarColaCocinaUseCase useCase;
 

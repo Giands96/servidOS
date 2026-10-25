@@ -1,6 +1,7 @@
 package com.servidos.v1.ordering.application.pedido;
 
 import com.servidos.v1.ordering.application.PedidoPagoPort;
+import com.servidos.v1.ordering.application.mesa.NumerosDeMesa;
 import com.servidos.v1.ordering.domain.EstadoPedido;
 import com.servidos.v1.ordering.domain.Pedido;
 import com.servidos.v1.ordering.infrastructure.jpa.PedidoJpaEntity;
@@ -28,9 +29,10 @@ public class ListarPedidosUseCase {
     private final PedidoJpaRepository pedidoRepository;
     private final PedidoMapper pedidoMapper;
     private final PedidoPagoPort pagoPort;
+    private final NumerosDeMesa numerosDeMesa;
 
-    /** {@code estadoPago} es null si el pedido no tiene pago. */
-    public record PedidoListado(Pedido pedido, String estadoPago) {}
+    /** {@code estadoPago} es null si el pedido no tiene pago; {@code numeroMesa}, si no tiene mesa. */
+    public record PedidoListado(Pedido pedido, String estadoPago, Integer numeroMesa) {}
 
     /**
      * @param estado    solo pedidos en ese estado (opcional)
@@ -54,6 +56,9 @@ public class ListarPedidosUseCase {
 
         var estadosDePago = pagoPort.estadosDePago(
                 page.getContent().stream().map(PedidoJpaEntity::getPedidoId).toList(), restauranteId);
-        return page.map(e -> new PedidoListado(pedidoMapper.toDomain(e), estadosDePago.get(e.getPedidoId())));
+        var numerosPorMesa = numerosDeMesa.de(
+                page.getContent().stream().map(PedidoJpaEntity::getMesaId).toList(), restauranteId);
+        return page.map(e -> new PedidoListado(pedidoMapper.toDomain(e), estadosDePago.get(e.getPedidoId()),
+                numerosPorMesa.get(e.getMesaId())));
     }
 }

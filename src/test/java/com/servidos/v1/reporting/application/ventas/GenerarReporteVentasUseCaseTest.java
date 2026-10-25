@@ -40,7 +40,7 @@ class GenerarReporteVentasUseCaseTest {
     void armaElReporteDelPeriodoConResumenYPagina() {
         var rango = new RangoFechas(LocalDate.of(2026, 10, 19), LocalDate.of(2026, 10, 25));
         var venta = new VentaPedido(7L, LocalDateTime.of(2026, 10, 23, 13, 0), "DELIVERY", "YAPE",
-                new BigDecimal("25.00"));
+                new BigDecimal("25.00"), null, null);
         var resumen = new ResumenVentas(1, new BigDecimal("25.00"));
         var pageable = PageRequest.of(0, 20);
         when(query.resumen(100L, rango)).thenReturn(resumen);

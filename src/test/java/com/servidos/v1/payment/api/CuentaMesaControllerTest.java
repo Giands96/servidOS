@@ -96,7 +96,7 @@ class CuentaMesaControllerTest {
 
     @Test
     void pagarTomaTenantYCajeroDelContextoYDa201() {
-        var cuenta = new CuentaPagada(55L, 7L, new BigDecimal("75.50"), MetodoPago.EFECTIVO, new BigDecimal("24.50"),
+        var cuenta = new CuentaPagada(55L, 7L, 3, new BigDecimal("75.50"), MetodoPago.EFECTIVO, new BigDecimal("24.50"),
                 List.of(new CuentaPagada.Pago(101L, 10L, new BigDecimal("50.00")),
                         new CuentaPagada.Pago(102L, 11L, new BigDecimal("25.50"))));
         when(pagarCuentaMesaUseCase.ejecutar(
@@ -110,6 +110,7 @@ class CuentaMesaControllerTest {
         var body = resp.getBody();
         assertEquals(55L, body.cuentaId());
         assertEquals(7L, body.mesaId());
+        assertEquals(3, body.numeroMesa());
         assertEquals(0, new BigDecimal("75.50").compareTo(body.total()));
         assertEquals(MetodoPago.EFECTIVO, body.metodoPago());
         assertEquals(0, new BigDecimal("24.50").compareTo(body.vuelto()));

@@ -7,9 +7,11 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/** {@code numeroMesa}: número actual de la mesa, o null sin mesa. */
 public record PreparacionPedidoResponse(
         Long pedidoId,
         Long mesaId,
+        Integer numeroMesa,
         TipoPedido tipoPedido,
         EstadoPedido estado,
         String observacion,

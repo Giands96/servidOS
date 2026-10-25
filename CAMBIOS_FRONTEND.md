@@ -570,6 +570,27 @@ El 403 trae `message` "El mesero solo puede tomar pedidos de mesa o para llevar 
 - "Nuevo pedido · Local": para el MESERO, ofrecer solo `MESA` y "para llevar" con la mesa seleccionada; ocultar DELIVERY y RECOJO sin mesa.
 - Tablero de pedidos: para el MESERO, mostrar "Confirmar" en PENDIENTE (usa `/confirmar`) y "Entregado" solo en pedidos `MESA` LISTO; ocultar "Cancelar", "En camino" y el cobro.
 
+## 21. Las respuestas de pedidos traen el número de mesa (`numeroMesa`) ✅
+
+Antes las respuestas solo traían `mesaId` (el id de la base), y el COCINERO no puede llamar a `GET /mesas`.
+Ahora, junto a `mesaId` (que no cambia), viene **`numeroMesa`** (`Integer`, nullable):
+
+| Respuesta | Endpoints |
+|---|---|
+| `PedidoListadoResponse` | `GET /pedidos` (todos los filtros, también `porCobrar=true`) |
+| `PedidoResponse` | `POST /pedidos`, `POST /pedidos/{id}/confirmar`, `PATCH /pedidos/{id}/estado` |
+| `PreparacionPedidoResponse` | `GET /cocina/cola`, `GET /cocina/listos` (también para COCINERO) |
+| `PagarCuentaMesaResponse` | `POST /mesas/{mesaId}/cuenta/pagar` |
+| `VentaPedidoResponse` | `GET /reportes/ventas`: suma `mesaId` **y** `numeroMesa` |
+
+- `numeroMesa` es el `numero` **actual** de la mesa del pedido: si la mesa se renumera con `PUT /mesas/{id}`, cambia;
+  si la mesa está dada de baja, sigue viniendo su número.
+- `null` cuando el pedido no tiene mesa (DELIVERY, o RECOJO sin mesa). Un RECOJO vinculado a una mesa trae el número.
+- Roles, códigos de error y el evento WebSocket de cocina no cambian.
+- `GET /pedidos/{id}` no existe en el backend; el número llega por las respuestas de la tabla.
+
+Mostrar "Mesa 7" con `numeroMesa`, y solo "Mesa" si viene null o falta; nunca el id.
+
 ---
 
 ## Checklist para el front
@@ -593,3 +614,4 @@ El 403 trae `message` "El mesero solo puede tomar pedidos de mesa o para llevar 
 - [ ] Entender que un RECOJO/DELIVERY vinculado sin cobrar impide liberar o dar de baja la mesa (§19).
 - [ ] Permisos del MESERO: crear, listar, confirmar, ver la cuenta y entregar pedidos `MESA` LISTO; sin cobro ni cancelación (§20).
 - [ ] "Nuevo pedido · Local" para el MESERO: solo `MESA` y "para llevar" de una mesa (§20).
+- [ ] Mostrar `numeroMesa` en tablero, Cocina, Caja y Reportes; nunca el `mesaId` (§21).
