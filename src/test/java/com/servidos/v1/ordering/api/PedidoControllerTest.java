@@ -135,4 +135,23 @@ class PedidoControllerTest {
         assertEquals("hasAnyRole('ADMINISTRADOR','RECEPCION','CAJERO','MESERO')",
                 permisos("listar", EstadoPedido.class, LocalDate.class, boolean.class, int.class, int.class));
     }
+
+    private static String permisos(String metodo, Class<?>... tipos) throws NoSuchMethodException {
+        Method m = PedidoController.class.getMethod(metodo, tipos);
+        return m.getAnnotation(PreAuthorize.class).value();
+    }
+
+    @Test
+    void elMeseroTomaConfirmaYCambiaEstadoJuntoARecepcion() throws Exception {
+        String salon = "hasAnyRole('ADMINISTRADOR','RECEPCION','MESERO')";
+        assertEquals(salon, permisos("crear", CrearPedidoRequest.class));
+        assertEquals(salon, permisos("confirmar", Long.class));
+        assertEquals(salon, permisos("cambiarEstado", Long.class, CambiarEstadoRequest.class));
+    }
+
+    @Test
+    void elMeseroLeeElListadoJuntoALaCaja() throws Exception {
+        assertEquals("hasAnyRole('ADMINISTRADOR','RECEPCION','CAJERO','MESERO')",
+                permisos("listar", EstadoPedido.class, LocalDate.class, boolean.class, int.class, int.class));
+    }
 }
