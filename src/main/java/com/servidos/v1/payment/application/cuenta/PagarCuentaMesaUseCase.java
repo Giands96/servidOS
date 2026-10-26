@@ -66,7 +66,7 @@ public class PagarCuentaMesaUseCase {
             throw new BusinessException("Debe indicar los pedidos de la cuenta");
         }
 
-        mesaRepository.bloquearPorIdYRestaurante(cmd.mesaId(), restauranteId)
+        var mesa = mesaRepository.bloquearPorIdYRestaurante(cmd.mesaId(), restauranteId)
                 .orElseThrow(() -> new BusinessException("Mesa no encontrada"));
 
         List<PedidoJpaEntity> pendientes = pedidoRepository.buscarPendientesDeCobroEnMesa(cmd.mesaId(), restauranteId);
@@ -118,7 +118,7 @@ public class PagarCuentaMesaUseCase {
         pagos.forEach(p -> eventPublisher.publish(
                 new PagoRegistradoEvent(p.getPagoId(), restauranteId, p.getPedidoId())));
 
-        return new CuentaPagada(cuentaId, cmd.mesaId(), total, cmd.metodoPago(), vuelto,
+        return new CuentaPagada(cuentaId, cmd.mesaId(), mesa.getNumero(), total, cmd.metodoPago(), vuelto,
                 pagos.stream().map(p -> new CuentaPagada.Pago(p.getPagoId(), p.getPedidoId(), p.getMonto())).toList());
     }
 

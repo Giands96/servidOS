@@ -1,6 +1,7 @@
 package com.servidos.v1.ordering.api;
 
 import com.servidos.v1.ordering.api.dto.PedidoListadoResponse;
+import com.servidos.v1.ordering.application.mesa.NumerosDeMesa;
 import com.servidos.v1.ordering.application.pedido.ListarPedidosUseCase;
 import com.servidos.v1.ordering.domain.EstadoPedido;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -51,6 +52,7 @@ public class PedidoController {
     private final ConfirmarPedidoUseCase confirmarPedidoUseCase;
     private final CambiarEstadoPedidoUseCase cambiarEstadoPedidoUseCase;
     private final ListarPedidosUseCase listarPedidosUseCase;
+    private final NumerosDeMesa numerosDeMesa;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','RECEPCION','CAJERO','MESERO')")
@@ -76,7 +78,7 @@ public class PedidoController {
             @RequestParam(defaultValue = "20") int size) {
         var pagina = listarPedidosUseCase.listar(TenantContext.getRestauranteId(), estado, fecha, porCobrar, page, size);
         return ResponseEntity.ok(pagina.map(l -> new PedidoListadoResponse(
-                l.pedido().getPedido_id(), l.pedido().getTipoPedido(), l.pedido().getMesa_id(),
+                l.pedido().getPedido_id(), l.pedido().getTipoPedido(), l.pedido().getMesa_id(), l.numeroMesa(),
                 l.pedido().getEstado(), l.pedido().getTotal(), l.pedido().getObservacion(),
                 l.pedido().getCreated_at(), l.estadoPago())));
     }
@@ -158,6 +160,7 @@ public class PedidoController {
 
     private PedidoResponse toResponse(Pedido p) {
         return new PedidoResponse(
-                p.getPedido_id(), p.getTipoPedido(), p.getMesa_id(), p.getEstado(), p.getTotal());
+                p.getPedido_id(), p.getTipoPedido(), p.getMesa_id(),
+                numerosDeMesa.de(p.getMesa_id(), p.getRestaurante_id()), p.getEstado(), p.getTotal());
     }
 }
