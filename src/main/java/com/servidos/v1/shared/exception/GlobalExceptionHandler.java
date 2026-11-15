@@ -7,6 +7,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -67,6 +68,17 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(
                 cuerpo(HttpStatus.CONFLICT, ex.getMessage(), request.getRequestURI(), traceId),
                 HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex,
+                                                            HttpServletRequest request) {
+        String traceId = nuevoTraceId();
+        String message = "Parámetro inválido: " + ex.getName();
+        logger.severe("[" + traceId + "] TypeMismatch: " + message);
+        return new ResponseEntity<>(
+                cuerpo(HttpStatus.BAD_REQUEST, message, request.getRequestURI(), traceId),
+                HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

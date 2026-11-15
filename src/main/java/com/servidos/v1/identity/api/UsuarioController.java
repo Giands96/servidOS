@@ -5,7 +5,9 @@ import com.servidos.v1.identity.api.dto.UsuarioPlataformaResponse;
 import com.servidos.v1.identity.application.usuario.CrearUsuarioPlataformaCommand;
 import com.servidos.v1.identity.application.usuario.CrearUsuarioPlataformaUseCase;
 import com.servidos.v1.identity.api.dto.CambiarRolRequest;
+import com.servidos.v1.identity.api.dto.ActualizarUsuarioRequest;
 import com.servidos.v1.identity.api.dto.RegistrarUsuarioRequest;
+import com.servidos.v1.identity.api.dto.UsuarioListadoResponse;
 import com.servidos.v1.identity.api.dto.UsuarioResponse;
 import com.servidos.v1.identity.application.rol.AsignarRolPlataformaCommand;
 import com.servidos.v1.identity.application.rol.AsignarRolPlataformaUseCase;
@@ -13,8 +15,14 @@ import com.servidos.v1.identity.application.rol.AsignarRolRestauranteCommand;
 import com.servidos.v1.identity.application.rol.AsignarRolRestauranteUseCase;
 import com.servidos.v1.identity.application.usuario.CrearUsuarioCommand;
 import com.servidos.v1.identity.application.usuario.CrearUsuarioUseCase;
+import com.servidos.v1.identity.application.usuario.ActualizarUsuarioCommand;
+import com.servidos.v1.identity.application.usuario.ActualizarUsuarioUseCase;
 import com.servidos.v1.identity.application.usuario.EliminarUsuarioCommand;
 import com.servidos.v1.identity.application.usuario.EliminarUsuarioUseCase;
+import com.servidos.v1.identity.application.usuario.ObtenerUsuariosCommand;
+import com.servidos.v1.identity.application.usuario.ObtenerUsuariosUseCase;
+import com.servidos.v1.identity.application.usuario.UsuarioListItem;
+import com.servidos.v1.identity.domain.EstadoUsuario;
 import com.servidos.v1.shared.exception.BusinessException;
 import com.servidos.v1.shared.exception.ErrorResponse;
 import com.servidos.v1.shared.security.TenantContext;
@@ -28,15 +36,18 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -51,6 +62,39 @@ public class UsuarioController {
     private final AsignarRolPlataformaUseCase asignarRolPlataformaUseCase;
     private final EliminarUsuarioUseCase eliminarUsuarioUseCase;
     private final CrearUsuarioPlataformaUseCase crearUsuarioPlataformaUseCase;
+    private final ObtenerUsuariosUseCase obtenerUsuariosUseCase;
+    private final ActualizarUsuarioUseCase actualizarUsuarioUseCase;
+
+    @GetMapping
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Listar usuarios del restaurante actual",
+            description = "Solo ADMINISTRADOR del tenant. Filtros opcionales: `nombre`, `apellido`, `email`, "
+                    + "`rolRestauranteId`, `rolNombre` (búsqueda parcial, sin distinguir mayúsculas) y `estado`. "
+                    + "Paginado (`?page=&size=`, default `size=20`, máximo 100). El restauranteId se toma del JWT, "
+                    + "nunca de un parámetro.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Página de usuarios del tenant"),
+            @ApiResponse(responseCode = "400", description = "Página o tamaño inválidos, o sesión de plataforma",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Sin sesión",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Sin permiso o cross-tenant",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
+    public ResponseEntity<Page<UsuarioListadoResponse>> listar(
+            @Parameter(description = "Búsqueda parcial por nombre") @RequestParam(required = false) String nombre,
+            @Parameter(description = "Búsqueda parcial por apellido") @RequestParam(required = false) String apellido,
+            @Parameter(description = "Búsqueda parcial por email") @RequestParam(required = false) String email,
+            @Parameter(description = "Solo usuarios con este rol") @RequestParam(required = false) Long rolRestauranteId,
+            @Parameter(description = "Búsqueda parcial por nombre del rol", example = "MESE")
+            @RequestParam(required = false) String rolNombre,
+            @Parameter(description = "Solo usuarios en este estado") @RequestParam(required = false) EstadoUsuario estado,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        var pagina = obtenerUsuariosUseCase.ejecutar(
+                new ObtenerUsuariosCommand(nombre, apellido, email, rolRestauranteId, rolNombre, estado),
+                TenantContext.getRestauranteId(), page, size);
+        return ResponseEntity.ok(pagina.map(this::toResponse));
+    }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMINISTRADOR')")
@@ -137,6 +181,32 @@ public class UsuarioController {
         return ResponseEntity.noContent().build();
     }
 
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Operation(summary = "Corregir nombre y apellido de un usuario del restaurante actual",
+            description = "Solo ADMINISTRADOR del tenant. Solo datos personales: email y contraseña no son "
+                    + "editables, y el rol tiene su propio endpoint (`PATCH /{id}/rol`). El restauranteId se "
+                    + "toma del JWT y el objetivo se busca con el tenant en la query.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Datos actualizados"),
+            @ApiResponse(responseCode = "400", description = "Datos inválidos, usuario inexistente o de otro tenant, "
+                    + "o sesión de plataforma",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Sin sesión",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Sin permiso o cross-tenant",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "422", description = "Validación Jakarta (@Valid)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))})
+    public ResponseEntity<Void> actualizar(
+            @Parameter(description = "ID del usuario objetivo", example = "2") @PathVariable Long id,
+            @Valid @RequestBody ActualizarUsuarioRequest request) {
+        actualizarUsuarioUseCase.ejecutar(
+                new ActualizarUsuarioCommand(id, request.nombre(), request.apellido()),
+                TenantContext.getRestauranteId());
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     @Operation(summary = "Eliminar usuario del restaurante actual",
@@ -158,5 +228,11 @@ public class UsuarioController {
         }
         eliminarUsuarioUseCase.ejecutar(new EliminarUsuarioCommand(id), restauranteId);
         return ResponseEntity.noContent().build();
+    }
+
+    private UsuarioListadoResponse toResponse(UsuarioListItem item) {
+        return new UsuarioListadoResponse(
+                item.usuarioId(), item.nombre(), item.apellido(), item.email(),
+                item.rolRestauranteId(), item.rolNombre(), item.estado(), item.ultimoAcceso());
     }
 }
